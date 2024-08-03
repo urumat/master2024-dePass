@@ -1,0 +1,6 @@
+backend/node_modules
+backend/.env
+
+mwallet/node_modules
+mwallet/.env
+mwallet/build
