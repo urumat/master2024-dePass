@@ -26,10 +26,6 @@ function App() {
               value: "0x1",
             },
             {
-              label: "Mumbai Testnet",
-              value: "0x13881",
-            },
-            {
               label: "Sepolia Testnet",
               value: "0xaa36a7",
             },

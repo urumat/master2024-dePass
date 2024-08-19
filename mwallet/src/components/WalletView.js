@@ -12,7 +12,6 @@ import {
 import { LogoutOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import logo from "../noImg.png";
-import axios from "axios";
 import { CHAINS_CONFIG } from "../chains";
 import { ethers } from "ethers";
 
@@ -194,24 +193,18 @@ function WalletView({
   async function getAccountTokens() {
     setFetching(true);
 
-    const res = await axios.get(`http://localhost:3001/getTokens`, {
-      params: {
-        userAddress: wallet,
-        chain: selectedChain,
-      },
-    });
+    const chain = CHAINS_CONFIG[selectedChain];
 
-    const response = res.data;
+    const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
 
-    if (response.tokens.length > 0) {
-      setTokens(response.tokens);
-    }
+    console.log("Uru")
+    console.log(chain.rpcUrl)
 
-    if (response.nfts.length > 0) {
-      setNfts(response.nfts);
-    }
+    const balance = await provider.getBalance(wallet);
 
-    setBalance(response.balance);
+    const balanceInEth = parseFloat(ethers.formatEther(balance));
+
+    setBalance(balanceInEth);
 
     setFetching(false);
   }
@@ -225,13 +218,6 @@ function WalletView({
     navigate("/");
   }
 
-  useEffect(() => {
-    if (!wallet || !selectedChain) return;
-    setNfts(null);
-    setTokens(null);
-    setBalance(0);
-    getAccountTokens();
-  }, []);
 
   useEffect(() => {
     if (!wallet) return;
