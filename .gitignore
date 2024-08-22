@@ -4,3 +4,4 @@ backend/.env
 mwallet/node_modules
 mwallet/.env
 mwallet/build
+mwallet/src/contracts/artifacts
