@@ -8,12 +8,18 @@ import {
   Tabs,
   Input,
   Button,
+  Select,
+  Form
 } from "antd";
-import { LogoutOutlined } from "@ant-design/icons";
+import { LogoutOutlined, PlusOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import logo from "../noImg.png";
 import { CHAINS_CONFIG } from "../chains";
 import { ethers } from "ethers";
+import PasswordVault_abi from '..//contracts/PasswordVault_abi.json';
+const { Option } = Select; // Usa Option para el selector
+
+const contractAddressSepolia = '0xaF91f6b78C63956d7d0100414cb65552EC259555';
 
 function WalletView({
   wallet,
@@ -23,6 +29,7 @@ function WalletView({
   selectedChain,
 }) {
   const navigate = useNavigate();
+  const [vaults, setVaults] = useState([]);
   const [tokens, setTokens] = useState(null);
   const [nfts, setNfts] = useState(null);
   const [balance, setBalance] = useState(0);
@@ -31,8 +38,129 @@ function WalletView({
   const [sendToAddress, setSendToAddress] = useState(null);
   const [processing, setProcessing] = useState(false);
   const [hash, setHash] = useState(null);
+  const [selectedVault, setSelectedVault] = useState("all");
+  const [contract, setContract] = useState(null);
+  const [isAddingPassword, setIsAddingPassword] = useState(false);
+  const [newCredential, setNewCredential] = useState({
+    username: "",
+    password: "",
+    url: "",
+  });
+
+  // Use ABI to create an interface
+  const passwordVaultInterface = new ethers.Interface(PasswordVault_abi);
+
+  const handleAddPassword = () => {
+    setIsAddingPassword(true);
+  };
+
+  const handleSavePassword = async () => {
+    setFetching(true);
+
+    const tx = await contract.addCredential(newCredential.username, newCredential.password, newCredential.url);
+    await tx.wait();
+    fetchVaults();
+
+    setIsAddingPassword(false);
+    setNewCredential({ username: "", password: "", url: "" });
+
+    setFetching(false);
+  };
+
+  const handleCancelAddPassword = () => {
+    setIsAddingPassword(false);
+    setNewCredential({ username: "", password: "", url: "" });
+  };
 
   const items = [
+    {
+      key: "4",
+      label: `Passwords`,
+      children: (
+        <>
+          {!isAddingPassword && (
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <Select
+                defaultValue="all"
+                style={{ width: "100%" }}
+                onChange={(value) => setSelectedVault(value)}
+              >
+                <Option value="all">All Vaults</Option>
+                {vaults && vaults.length > 0 ? (
+                  vaults.map((vault) => (
+                    <Option key={vault.name} value={vault.name}>
+                      {vault.name}
+                    </Option>
+                  ))
+                ) : (
+                  <Option disabled>No vaults available</Option>
+                )}
+              </Select>
+              <Button
+                icon={<PlusOutlined />}
+                type="primary"
+                style={{ marginLeft: "10px" }}
+                onClick={handleAddPassword}
+              />
+            </div>
+          )}
+          {isAddingPassword ? (
+            <Form layout="vertical">
+              <Form.Item label={<span style={{ color: "#ffffff" }}>Username</span>}>
+                <Input
+                  value={newCredential.username}
+                  onChange={(e) => setNewCredential({ ...newCredential, username: e.target.value })}
+                />
+              </Form.Item>
+              <Form.Item label={<span style={{ color: "#ffffff" }}>Password</span>}>
+                <Input.Password
+                  value={newCredential.password}
+                  onChange={(e) => setNewCredential({ ...newCredential, password: e.target.value })}
+                />
+              </Form.Item>
+              <Form.Item label={<span style={{ color: "#ffffff" }}>Url</span>}>
+                <Input
+                  value={newCredential.url}
+                  onChange={(e) => setNewCredential({ ...newCredential, url: e.target.value })}
+                />
+              </Form.Item>
+              <Button type="primary" onClick={handleSavePassword} style={{ marginRight: "10px" }}>
+                Save
+              </Button>
+              <Button onClick={handleCancelAddPassword}>Cancel</Button>
+            </Form>
+          ) : (
+            vaults ? (
+              <>
+                {vaults
+                  .filter((vault) =>
+                    selectedVault === "all" ? true : vault.name === selectedVault
+                  )
+                  .map((vault, i) => (
+                    <div key={i}>
+                      {vault.credentials.length > 0 ? (
+                        vault.credentials.map((credential) => (
+                          <div key={credential.url}>
+                            <p>
+                              Username: {credential.username}, 
+                              Password: {credential.password}, 
+                              URL: {credential.url}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <p>No credentials found</p>
+                      )}
+                    </div>
+                  ))}
+              </>
+            ) : (
+              <span>No vaults found</span>
+            )
+          )}
+        </>
+      ),
+    },
     {
       key: "3",
       label: `Tokens`,
@@ -197,9 +325,6 @@ function WalletView({
 
     const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
 
-    console.log("Uru")
-    console.log(chain.rpcUrl)
-
     const balance = await provider.getBalance(wallet);
 
     const balanceInEth = parseFloat(ethers.formatEther(balance));
@@ -209,9 +334,46 @@ function WalletView({
     setFetching(false);
   }
 
+  async function setContractsConfiguration() {
+    setFetching(true);
+
+    const chain = CHAINS_CONFIG[selectedChain];
+
+    const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
+
+    const privateKey = ethers.Wallet.fromPhrase(seedPhrase).privateKey;
+
+    const signer = new ethers.Wallet(privateKey, provider);
+
+    let tempContract = new ethers.Contract(contractAddressSepolia, PasswordVault_abi, signer);
+    setContract(tempContract);
+
+    fetchVaults()
+
+    setFetching(false);
+  }
+
+  const fetchVaults = async () => {
+    setFetching(true);
+
+
+    if (contract) {
+      try {
+          const retrievedVaults = await contract.getVaults();
+          
+          setVaults(retrievedVaults);            
+      } catch (error) {
+          //setErrorMessage(error.message);
+      }
+    }
+      
+    setFetching(false);
+  };
+
   function logout() {
     setSeedPhrase(null);
     setWallet(null);
+    setVaults(null);
     setNfts(null);
     setTokens(null);
     setBalance(0);
@@ -221,10 +383,13 @@ function WalletView({
 
   useEffect(() => {
     if (!wallet) return;
+    setVaults(null);
     setNfts(null);
     setTokens(null);
     setBalance(0);
     getAccountTokens();
+    setContractsConfiguration();
+    fetchVaults()
   }, [selectedChain]);
 
   return (
