@@ -16,10 +16,11 @@ import { useNavigate } from "react-router-dom";
 import logo from "../noImg.png";
 import { CHAINS_CONFIG } from "../chains";
 import { ethers } from "ethers";
-import PasswordVault_abi from '..//contracts/PasswordVault_abi.json';
+import DePass_abi from '..//contracts/DePass_abi.json';
+import { v4 as uuidv4 } from 'uuid'; // Para generar IDs aleatorios
 const { Option } = Select; // Usa Option para el selector
 
-const contractAddressSepolia = '0xaF91f6b78C63956d7d0100414cb65552EC259555';
+const contractAddressSepolia = '0x4a02df6FE9D8d84ac933e24C7290eDcF412F3059';
 
 function WalletView({
   wallet,
@@ -41,35 +42,83 @@ function WalletView({
   const [selectedVault, setSelectedVault] = useState("all");
   const [contract, setContract] = useState(null);
   const [isAddingPassword, setIsAddingPassword] = useState(false);
+  const [isAddingVault, setIsAddingVault] = useState(false);
   const [newCredential, setNewCredential] = useState({
     username: "",
     password: "",
     url: "",
   });
+  const [newVault, setNewVault] = useState({
+    name: "",
+  });
 
   // Use ABI to create an interface
-  const passwordVaultInterface = new ethers.Interface(PasswordVault_abi);
+  const DePassInterface = new ethers.Interface(DePass_abi);
+
+  // Mock encryption/decryption functions
+  const encrypt = (data) => JSON.stringify(data);;
+  const decrypt = (data) => data;
+
 
   const handleAddPassword = () => {
     setIsAddingPassword(true);
   };
 
+  const handleAddVault = () => {
+    setIsAddingVault(true);
+  };
+
   const handleSavePassword = async () => {
     setFetching(true);
 
-    const tx = await contract.addCredential(newCredential.username, newCredential.password, newCredential.url);
+    const credentialId = ethers.keccak256(ethers.toUtf8Bytes(uuidv4()));
+    const encryptedData = encrypt(newCredential); // Cifra el JSON completo
+    const tx = await contract.addCredential(selectedVault.id, credentialId, encryptedData);
     await tx.wait();
-    fetchVaults();
-
+    
     setIsAddingPassword(false);
     setNewCredential({ username: "", password: "", url: "" });
+    await fetchVaults(contract);
 
     setFetching(false);
   };
 
+
+  const handleSaveVault = async () => {
+    setFetching(true);
+
+    const vaultId = ethers.keccak256(ethers.toUtf8Bytes(uuidv4()));
+    const symmetricKey = "symmetrickey"; // Clave simétrica ficticia
+    const tx = await contract.createVault(vaultId, newVault.name, symmetricKey);
+    await tx.wait();
+    
+    setIsAddingVault(false);
+    setNewVault({ name: "" });
+    await fetchVaults(contract);
+
+    setFetching(false);
+  };
+
+
   const handleCancelAddPassword = () => {
     setIsAddingPassword(false);
     setNewCredential({ username: "", password: "", url: "" });
+  };
+
+  const handleCancelAddVault = () => {
+    setIsAddingVault(false);
+    setNewVault({ name: "" });
+  };
+
+  const handleSelectVault = (value) => {
+    if (value === "add-vault") {
+      setSelectedVault(null);
+      handleAddVault(); // Muestra el formulario para agregar un nuevo vault
+    } else {
+      // Busca el vault correspondiente al ID seleccionado y setéalo como el vault seleccionado
+      const selectedVault = vaults.find((vault) => vault.id === value);
+      setSelectedVault(selectedVault);
+    }
   };
 
   const items = [
@@ -78,23 +127,26 @@ function WalletView({
       label: `Passwords`,
       children: (
         <>
-          {!isAddingPassword && (
+          {!isAddingPassword && !isAddingVault && (
             <div style={{ display: "flex", alignItems: "center" }}>
               <Select
                 defaultValue="all"
                 style={{ width: "100%" }}
-                onChange={(value) => setSelectedVault(value)}
+                onChange={handleSelectVault}
               >
-                <Option value="all">All Vaults</Option>
+                <Option key="all" value="all">All Vaults</Option>
                 {vaults && vaults.length > 0 ? (
                   vaults.map((vault) => (
-                    <Option key={vault.name} value={vault.name}>
+                    <Option key={vault.id} value={vault.id}>
                       {vault.name}
                     </Option>
                   ))
                 ) : (
-                  <Option disabled>No vaults available</Option>
+                  <Option key="null" value="null" disabled>No vaults available</Option>
                 )}
+                <Option key="add-vault" value="add-vault">
+                  + Add New Vault
+                </Option>
               </Select>
               <Button
                 icon={<PlusOutlined />}
@@ -104,7 +156,7 @@ function WalletView({
               />
             </div>
           )}
-          {isAddingPassword ? (
+          { isAddingPassword ? (
             <Form layout="vertical">
               <Form.Item label={<span style={{ color: "#ffffff" }}>Username</span>}>
                 <Input
@@ -129,6 +181,19 @@ function WalletView({
               </Button>
               <Button onClick={handleCancelAddPassword}>Cancel</Button>
             </Form>
+          ) : isAddingVault ? (
+            <Form layout="vertical">
+              <Form.Item label={<span style={{ color: "#ffffff" }}>Vault Name</span>}>
+                <Input
+                  value={newVault.name}
+                  onChange={(e) => setNewVault({ ...newVault, name: e.target.value })}
+                />
+              </Form.Item>
+              <Button type="primary" onClick={handleSaveVault} style={{ marginRight: "10px" }}>
+                Save
+              </Button>
+              <Button onClick={handleCancelAddVault}>Cancel</Button>
+            </Form>
           ) : (
             vaults ? (
               <>
@@ -140,7 +205,7 @@ function WalletView({
                     <div key={i}>
                       {vault.credentials.length > 0 ? (
                         vault.credentials.map((credential) => (
-                          <div key={credential.url}>
+                          <div key={credential.id}>
                             <p>
                               Username: {credential.username}, 
                               Password: {credential.password}, 
@@ -345,7 +410,7 @@ function WalletView({
 
     const signer = new ethers.Wallet(privateKey, provider);
 
-    let tempContract = new ethers.Contract(contractAddressSepolia, PasswordVault_abi, signer);
+    let tempContract = new ethers.Contract(contractAddressSepolia, DePass_abi, signer);
     setContract(tempContract);
 
     fetchVaults()
@@ -356,12 +421,29 @@ function WalletView({
   const fetchVaults = async () => {
     setFetching(true);
 
-
     if (contract) {
       try {
-          const retrievedVaults = await contract.getVaults();
-          
-          setVaults(retrievedVaults);            
+        const retrievedVaults = await contract.getVaults();
+
+        // Procesar cada vault
+        const processedVaults = await Promise.all(retrievedVaults.map(async (vault) => {
+            // Desencriptar y procesar cada credencial
+            const processedCredentials = await Promise.all(vault.credentials.map(async (cred) => {
+                const decryptedData = decrypt(cred.encryptedData); // Llama a tu función de desencriptado
+                let credential;
+                try {
+                    credential = JSON.parse(decryptedData); // Convertir el string JSON a objeto
+                } catch (error) {
+                    console.error("Error parsing JSON:", error);
+                    credential = {}; // En caso de error, asignar un objeto vacío o manejar según sea necesario
+                }
+                return { ...cred, ...credential }; // Combinar los datos desencriptados con el objeto credencial original
+            }));
+
+            return { id: vault.id, name: vault.name, credentials: processedCredentials }; // Actualizar las credenciales del vault
+        }));
+
+        setVaults(processedVaults);            
       } catch (error) {
           //setErrorMessage(error.message);
       }
@@ -390,7 +472,7 @@ function WalletView({
     getAccountTokens();
     setContractsConfiguration();
     fetchVaults()
-  }, [selectedChain]);
+  }, [wallet, selectedChain]);
 
   return (
     <>
