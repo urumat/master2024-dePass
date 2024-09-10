@@ -12,16 +12,24 @@ contract DePass {
         string name;
         Credential[] credentials;
         address[] sharedWith; // List of addresses with whom the vault is shared
+        mapping(address => string) encryptedKeys; // Symmetric key encrypted with each user's public key
+    }
+
+    struct VaultInfo {
+        bytes32 id;
+        string name;
+        Credential[] credentials;
+        address[] sharedWith;
     }
 
     // Mapping to store the vaults created by each user
     mapping(address => Vault[]) private userVaults;
     
-    // Mapping to track which vaults have been shared with a user
-    mapping(address => Vault[]) private sharedVaults;
+    // Mapping to track which vaults have been shared with a user (vaultId => owner address)
+    mapping(address => mapping(bytes32 => address)) private vaultAccess;
 
-    // Mapping to store encrypted symmetric keys associated with each vault and user
-    mapping(address => mapping(bytes32 => string)) private encryptedKeys;
+    // Array to store the vault IDs shared with each user
+    mapping(address => bytes32[]) private sharedVaultIds;
 
     event CredentialAdded(address indexed user, bytes32 vaultId, bytes32 credentialId);
     event CredentialModified(address indexed user, bytes32 vaultId, bytes32 credentialId);
@@ -37,7 +45,7 @@ contract DePass {
         newVault.id = _vaultId;
         newVault.name = _vaultName;
 
-        encryptedKeys[msg.sender][_vaultId] = _encryptedSymmetricKey;
+        newVault.encryptedKeys[msg.sender] = _encryptedSymmetricKey;
 
         emit VaultCreated(msg.sender, _vaultId, _vaultName);
     }
@@ -74,14 +82,17 @@ contract DePass {
         Vault storage vault = _getVaultById(msg.sender, _vaultId);
         require(vault.id != bytes32(0), "Vault not found");
 
-        // Store the encrypted key for the new user
-        encryptedKeys[_userToShareWith][_vaultId] = _encryptedSymmetricKey;
+        // Almacenar la clave cifrada para el nuevo usuario
+        vault.encryptedKeys[_userToShareWith] = _encryptedSymmetricKey;
 
-        // Add the user to the shared list
+        // Agregar el usuario a la lista de compartidos
         vault.sharedWith.push(_userToShareWith);
 
-        // Add the vault to the shared vaults mapping
-        sharedVaults[_userToShareWith].push(vault);
+        // Registrar el acceso del usuario a la bóveda
+        vaultAccess[_userToShareWith][_vaultId] = msg.sender;
+
+        // Agregar el vaultId a la lista de bóvedas compartidas con el usuario
+        sharedVaultIds[_userToShareWith].push(_vaultId);
 
         emit VaultShared(msg.sender, _userToShareWith, _vaultId);
     }
@@ -91,7 +102,7 @@ contract DePass {
         require(vault.id != bytes32(0), "Vault not found");
 
         // Remove the encrypted symmetric key for the user
-        delete encryptedKeys[_userToUnshareWith][_vaultId];
+        delete vault.encryptedKeys[_userToUnshareWith];
 
         // Remove the user from the list of shared addresses
         for (uint256 j = 0; j < vault.sharedWith.length; j++) {
@@ -102,8 +113,17 @@ contract DePass {
             }
         }
 
-        // Remove the vault from the sharedVaults mapping
-        _removeSharedVault(_userToUnshareWith, _vaultId);
+        // Remove the vault access for the user
+        delete vaultAccess[_userToUnshareWith][_vaultId];
+
+        // Remove the vaultId from the list of sharedVaultIds
+        for (uint256 i = 0; i < sharedVaultIds[_userToUnshareWith].length; i++) {
+            if (sharedVaultIds[_userToUnshareWith][i] == _vaultId) {
+                sharedVaultIds[_userToUnshareWith][i] = sharedVaultIds[_userToUnshareWith][sharedVaultIds[_userToUnshareWith].length - 1];
+                sharedVaultIds[_userToUnshareWith].pop();
+                break;
+            }
+        }
 
         emit VaultUnshared(msg.sender, _userToUnshareWith, _vaultId);
     }
@@ -125,12 +145,41 @@ contract DePass {
         emit VaultDeleted(msg.sender, _vaultId);
     }
 
-    function getVaults() public view returns (Vault[] memory) {
-        return userVaults[msg.sender];
+    function getVaults() public view returns (VaultInfo[] memory) {
+        Vault[] storage vaults = userVaults[msg.sender];
+        VaultInfo[] memory vaultInfos = new VaultInfo[](vaults.length);
+
+        for (uint256 i = 0; i < vaults.length; i++) {
+            vaultInfos[i] = VaultInfo({
+                id: vaults[i].id,
+                name: vaults[i].name,
+                credentials: vaults[i].credentials,
+                sharedWith: vaults[i].sharedWith
+            });
+        }
+
+        return vaultInfos;
     }
 
-    function getSharedVaults() public view returns (Vault[] memory) {
-        return sharedVaults[msg.sender];
+    function getSharedVaults() public view returns (VaultInfo[] memory) {
+        uint256 sharedVaultCount = sharedVaultIds[msg.sender].length;
+        VaultInfo[] memory sharedVaults = new VaultInfo[](sharedVaultCount);
+
+        for (uint256 i = 0; i < sharedVaultCount; i++) {
+            bytes32 vaultId = sharedVaultIds[msg.sender][i];
+            address vaultOwner = vaultAccess[msg.sender][vaultId];
+
+            Vault storage sharedVault = _getVaultById(vaultOwner, vaultId);
+
+            sharedVaults[i] = VaultInfo({
+                id: sharedVault.id,
+                name: sharedVault.name,
+                credentials: sharedVault.credentials,
+                sharedWith: sharedVault.sharedWith
+            });
+        }
+
+        return sharedVaults;
     }
 
     function _getVaultById(address _user, bytes32 _vaultId) internal view returns (Vault storage) {
@@ -141,16 +190,5 @@ contract DePass {
             }
         }
         revert("Vault not found");
-    }
-
-    function _removeSharedVault(address _user, bytes32 _vaultId) internal {
-        Vault[] storage vaults = sharedVaults[_user];
-        for (uint256 i = 0; i < vaults.length; i++) {
-            if (vaults[i].id == _vaultId) {
-                vaults[i] = vaults[vaults.length - 1];
-                vaults.pop();
-                return;
-            }
-        }
     }
 }
