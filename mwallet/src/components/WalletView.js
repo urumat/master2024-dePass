@@ -418,6 +418,25 @@ function WalletView({
     setFetching(false);
   }
 
+  const processCredentials = async (vault) => {
+    // Procesa las credenciales y maneja los errores devolviendo null en caso de fallo
+    const processedCredentials = await Promise.all(
+        vault.credentials.map(async (cred) => {
+            try {
+                const decryptedData = decrypt(cred.encryptedData); // Llama a tu función de desencriptado
+                const credential = JSON.parse(decryptedData); // Intenta convertir el string JSON a objeto
+                return { ...cred, ...credential }; // Devuelve la combinación de credencial original y desencriptada
+            } catch (error) {
+                console.error("Error decrypting or parsing JSON:", error);
+                return null; // Devuelve null en caso de error
+            }
+        })
+    );
+
+    // Filtra los nulls y devuelve solo las credenciales válidas
+    return processedCredentials.filter((cred) => cred !== null);
+  };
+
   const fetchVaults = async () => {
     setFetching(true);
 
@@ -428,17 +447,7 @@ function WalletView({
         // Procesar cada vault
         const processedVaults = await Promise.all(retrievedVaults.map(async (vault) => {
             // Desencriptar y procesar cada credencial
-            const processedCredentials = await Promise.all(vault.credentials.map(async (cred) => {
-                const decryptedData = decrypt(cred.encryptedData); // Llama a tu función de desencriptado
-                let credential;
-                try {
-                    credential = JSON.parse(decryptedData); // Convertir el string JSON a objeto
-                } catch (error) {
-                    console.error("Error parsing JSON:", error);
-                    credential = {}; // En caso de error, asignar un objeto vacío o manejar según sea necesario
-                }
-                return { ...cred, ...credential }; // Combinar los datos desencriptados con el objeto credencial original
-            }));
+            const processedCredentials = await processCredentials(vault);
 
             return { id: vault.id, name: vault.name, credentials: processedCredentials }; // Actualizar las credenciales del vault
         }));
@@ -473,6 +482,11 @@ function WalletView({
     setContractsConfiguration();
     fetchVaults()
   }, [wallet, selectedChain]);
+
+  useEffect(() => {
+    if (!contract) return;
+    fetchVaults()
+  }, [contract]);
 
   return (
     <>
