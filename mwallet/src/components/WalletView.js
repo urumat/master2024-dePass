@@ -103,11 +103,13 @@ function WalletView({
   const handleCancelAddPassword = () => {
     setIsAddingPassword(false);
     setNewCredential({ username: "", password: "", url: "" });
+    setSelectedVault("all");
   };
 
   const handleCancelAddVault = () => {
     setIsAddingVault(false);
     setNewVault({ name: "" });
+    setSelectedVault("all");
   };
 
   const handleSelectVault = (value) => {
