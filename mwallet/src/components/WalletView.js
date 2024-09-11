@@ -114,11 +114,30 @@ function WalletView({
     if (value === "add-vault") {
       setSelectedVault(null);
       handleAddVault(); // Muestra el formulario para agregar un nuevo vault
+    } else if (value === "all") {
+      setSelectedVault("all");
     } else {
       // Busca el vault correspondiente al ID seleccionado y setéalo como el vault seleccionado
       const selectedVault = vaults.find((vault) => vault.id === value);
       setSelectedVault(selectedVault);
     }
+  };
+
+  const filterVaults = (vaults, selectedVault) => 
+    vaults.filter(vault => selectedVault === "all" ? true : vault.id === selectedVault.id);
+  
+  const extractCredentials = (vaults, selectedVault) => 
+    selectedVault === "all" 
+      ? vaults.flatMap(vault => vault.credentials)
+      : vaults.reduce((acc, vault) => acc.concat(vault.credentials), []);
+  
+  const sortCredentialsByUrl = (credentials) => 
+    credentials.sort((a, b) => (a.url || '').localeCompare(b.url || ''));
+  
+  const getAllCredentials = () => {
+    const filteredVaults = filterVaults(vaults, selectedVault);
+    const allCredentials = extractCredentials(filteredVaults, selectedVault);
+    return sortCredentialsByUrl(allCredentials);
   };
 
   const items = [
@@ -195,29 +214,21 @@ function WalletView({
               <Button onClick={handleCancelAddVault}>Cancel</Button>
             </Form>
           ) : (
-            vaults ? (
+            vaults && selectedVault ? (
               <>
-                {vaults
-                  .filter((vault) =>
-                    selectedVault === "all" ? true : vault.name === selectedVault
-                  )
-                  .map((vault, i) => (
-                    <div key={i}>
-                      {vault.credentials.length > 0 ? (
-                        vault.credentials.map((credential) => (
-                          <div key={credential.id}>
-                            <p>
-                              Username: {credential.username}, 
-                              Password: {credential.password}, 
-                              URL: {credential.url}
-                            </p>
-                          </div>
-                        ))
-                      ) : (
-                        <p>No credentials found</p>
-                      )}
+                {getAllCredentials().length === 0 ? (
+                  <p>No credentials found</p>
+                ) : (
+                  getAllCredentials().map((credential) => (
+                    <div key={credential.id}>
+                      <p>
+                        Username: {credential.username}, 
+                        Password: {credential.password}, 
+                        URL: {credential.url}
+                      </p>
                     </div>
-                  ))}
+                  ))
+                )}
               </>
             ) : (
               <span>No vaults found</span>
@@ -425,16 +436,16 @@ function WalletView({
             try {
                 const decryptedData = decrypt(cred.encryptedData); // Llama a tu función de desencriptado
                 const credential = JSON.parse(decryptedData); // Intenta convertir el string JSON a objeto
-                return { ...cred, ...credential }; // Devuelve la combinación de credencial original y desencriptada
+                return { id: cred.id, ...credential }; // Devuelve la combinación de credencial original y desencriptada
             } catch (error) {
-                console.error("Error decrypting or parsing JSON:", error);
+                //console.error("Error decrypting or parsing JSON:", error);
                 return null; // Devuelve null en caso de error
             }
         })
     );
 
     // Filtra los nulls y devuelve solo las credenciales válidas
-    return processedCredentials.filter((cred) => cred !== null);
+    return processedCredentials.filter((cred) => cred != null && cred.id != null);
   };
 
   const fetchVaults = async () => {
@@ -480,7 +491,6 @@ function WalletView({
     setBalance(0);
     getAccountTokens();
     setContractsConfiguration();
-    fetchVaults()
   }, [wallet, selectedChain]);
 
   useEffect(() => {
