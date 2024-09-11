@@ -110,20 +110,31 @@ contract DePass {
 
     function deleteVault(bytes32 _vaultId) public {
         Vault[] storage vaults = userVaults[msg.sender];
-        bool vaultDeleted = false;
+        bool vaultFound = false;
 
         for (uint256 i = 0; i < vaults.length; i++) {
             if (vaults[i].id == _vaultId) {
-                delete vaults[i];
-                vaultDeleted = true;
+                Vault storage vaultToDelete = vaults[i];
+                vaultFound = true;
+
+                // Eliminar la bóveda de los sharedVaults de los usuarios con los que se compartió
+                address[] memory sharedUsers = vaultToDelete.sharedWith;
+                for (uint256 j = 0; j < sharedUsers.length; j++) {
+                    _removeSharedVault(sharedUsers[j], _vaultId);
+                }
+
+                // Eliminar la bóveda del array del usuario actual
+                vaults[i] = vaults[vaults.length - 1];
+                vaults.pop();
                 break;
             }
         }
 
-        require(vaultDeleted, "Vault not found or deletion failed");
+        require(vaultFound, "Vault not found or deletion failed");
 
         emit VaultDeleted(msg.sender, _vaultId);
     }
+
 
     function getVaults() public view returns (Vault[] memory) {
         return userVaults[msg.sender];
