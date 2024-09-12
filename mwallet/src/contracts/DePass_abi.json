@@ -1,5 +1,51 @@
 [
 	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "_vaultId",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "_credentialId",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "string",
+				"name": "_encryptedData",
+				"type": "string"
+			}
+		],
+		"name": "addCredential",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "_vaultId",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "string",
+				"name": "_vaultName",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "_encryptedSymmetricKey",
+				"type": "string"
+			}
+		],
+		"name": "createVault",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
 		"anonymous": false,
 		"inputs": [
 			{
@@ -48,6 +94,83 @@
 		],
 		"name": "CredentialModified",
 		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "_vaultId",
+				"type": "bytes32"
+			}
+		],
+		"name": "deleteVault",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "_vaultId",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "_credentialId",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "string",
+				"name": "_newEncryptedData",
+				"type": "string"
+			}
+		],
+		"name": "modifyCredential",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "_vaultId",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "address",
+				"name": "_userToShareWith",
+				"type": "address"
+			},
+			{
+				"internalType": "string",
+				"name": "_encryptedSymmetricKey",
+				"type": "string"
+			}
+		],
+		"name": "shareVault",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "_vaultId",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "address",
+				"name": "_userToUnshareWith",
+				"type": "address"
+			}
+		],
+		"name": "unshareVault",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
 	},
 	{
 		"anonymous": false,
@@ -144,65 +267,6 @@
 		"type": "event"
 	},
 	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "_vaultId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "_credentialId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "string",
-				"name": "_encryptedData",
-				"type": "string"
-			}
-		],
-		"name": "addCredential",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "_vaultId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "string",
-				"name": "_vaultName",
-				"type": "string"
-			},
-			{
-				"internalType": "string",
-				"name": "_encryptedSymmetricKey",
-				"type": "string"
-			}
-		],
-		"name": "createVault",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "_vaultId",
-				"type": "bytes32"
-			}
-		],
-		"name": "deleteVault",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
 		"inputs": [],
 		"name": "getSharedVaults",
 		"outputs": [
@@ -294,70 +358,6 @@
 			}
 		],
 		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "_vaultId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "_credentialId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "string",
-				"name": "_newEncryptedData",
-				"type": "string"
-			}
-		],
-		"name": "modifyCredential",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "_vaultId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "address",
-				"name": "_userToShareWith",
-				"type": "address"
-			},
-			{
-				"internalType": "string",
-				"name": "_encryptedSymmetricKey",
-				"type": "string"
-			}
-		],
-		"name": "shareVault",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "_vaultId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "address",
-				"name": "_userToUnshareWith",
-				"type": "address"
-			}
-		],
-		"name": "unshareVault",
-		"outputs": [],
-		"stateMutability": "nonpayable",
 		"type": "function"
 	}
 ]

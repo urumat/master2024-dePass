@@ -20,7 +20,7 @@ import DePass_abi from '..//contracts/DePass_abi.json';
 import { v4 as uuidv4 } from 'uuid'; // Para generar IDs aleatorios
 const { Option } = Select; // Usa Option para el selector
 
-const contractAddressSepolia = '0x4a02df6FE9D8d84ac933e24C7290eDcF412F3059';
+const contractAddressSepolia = '0x104B17bA85F06080B039bD3BEFc1BaC0d3cC19dD';
 
 function WalletView({
   wallet,
@@ -171,6 +171,22 @@ function WalletView({
     setFetching(false);
   };
 
+  // Handler to unshare the vault
+  const handleDeleteVault = async () => {
+    setFetching(true);
+    try {
+      
+      const tx = await contract.deleteVault(selectedVault.id);
+      await tx.wait();
+      handleCancelForm();
+      fetchVaults();
+      //message.success(`Vault unshared with ${address}`);
+    } catch (error) {
+      //message.error('Failed to unshare vault. Please try again.');
+    }
+    setFetching(false);
+  };
+
   const orderVaults = (vaults) => {
     // Ordenar vaults primero por shared y luego alfabéticamente por name
     return vaults.sort((a, b) => {
@@ -250,7 +266,7 @@ function WalletView({
             </div>
           )}
           { isAddingPassword ? (
-            <Form layout="vertical">
+            <Form layout="vertical" autoComplete="off">
               <Form.Item label={<span style={{ color: "#ffffff" }}>Username</span>}>
                 <Input
                   value={newCredential.username}
@@ -259,6 +275,7 @@ function WalletView({
               </Form.Item>
               <Form.Item label={<span style={{ color: "#ffffff" }}>Password</span>}>
                 <Input.Password
+                  autocomplete="new-password"
                   value={newCredential.password}
                   onChange={(e) => setNewCredential({ ...newCredential, password: e.target.value })}
                 />
@@ -323,6 +340,7 @@ function WalletView({
                   </List.Item>
                 )}
               />
+              <Button danger onClick={handleDeleteVault} style={{ margin: '10px' }}>Delete Vault</Button>
               <Button onClick={handleCancelForm} style={{ margin: '10px' }}>Cancel</Button>
             </Form>
           ) : (
@@ -568,7 +586,7 @@ function WalletView({
         const retrievedVaults = await contract.getVaults();
 
         // Procesar cada vault
-        const processedVaults = await Promise.all(retrievedVaults.map(async (vault) => {
+        const processedVaults = retrievedVaults.length == 0 ? [] : await Promise.all(retrievedVaults.map(async (vault) => {
             // Desencriptar y procesar cada credencial
             const processedCredentials = await processCredentials(vault);
 
@@ -661,7 +679,7 @@ function WalletView({
         {fetching ? (
           <Spin />
         ) : (
-          <Tabs defaultActiveKey="1" items={items} className="walletView" />
+          <Tabs defaultActiveKey="4" items={items} className="walletView" />
         )}
       </div>
     </>
