@@ -11,7 +11,7 @@ import {
   Select,
   Form
 } from "antd";
-import { LogoutOutlined, PlusOutlined } from "@ant-design/icons";
+import { LogoutOutlined, PlusOutlined, SettingOutlined, TeamOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import logo from "../noImg.png";
 import { CHAINS_CONFIG } from "../chains";
@@ -31,6 +31,7 @@ function WalletView({
 }) {
   const navigate = useNavigate();
   const [vaults, setVaults] = useState([]);
+  const [sharedVaults, setSharedVaults] = useState([]);
   const [tokens, setTokens] = useState(null);
   const [nfts, setNfts] = useState(null);
   const [balance, setBalance] = useState(0);
@@ -43,6 +44,7 @@ function WalletView({
   const [contract, setContract] = useState(null);
   const [isAddingPassword, setIsAddingPassword] = useState(false);
   const [isAddingVault, setIsAddingVault] = useState(false);
+  const [vaultSettings, setVaultSettings] = useState(false);
   const [newCredential, setNewCredential] = useState({
     username: "",
     password: "",
@@ -51,6 +53,7 @@ function WalletView({
   const [newVault, setNewVault] = useState({
     name: "",
   });
+  const [shareAddress, setShareAddress] = useState('');
 
   // Use ABI to create an interface
   const DePassInterface = new ethers.Interface(DePass_abi);
@@ -68,6 +71,10 @@ function WalletView({
     setIsAddingVault(true);
   };
 
+  const handleVaultSettings = () => {
+    setVaultSettings(true);
+  };
+
   const handleSavePassword = async () => {
     setFetching(true);
 
@@ -78,7 +85,8 @@ function WalletView({
     
     setIsAddingPassword(false);
     setNewCredential({ username: "", password: "", url: "" });
-    await fetchVaults(contract);
+    setSelectedVault("all");
+    await fetchVaults();
 
     setFetching(false);
   };
@@ -94,40 +102,95 @@ function WalletView({
     
     setIsAddingVault(false);
     setNewVault({ name: "" });
-    await fetchVaults(contract);
+    setSelectedVault("all");
+    await fetchVaults();
 
     setFetching(false);
   };
 
-
-  const handleCancelAddPassword = () => {
+  const handleCancelForm = () => {
+    setIsAddingVault(false);
     setIsAddingPassword(false);
+    setVaultSettings(false);
+    setNewVault({ name: "" });
     setNewCredential({ username: "", password: "", url: "" });
     setSelectedVault("all");
   };
 
-  const handleCancelAddVault = () => {
-    setIsAddingVault(false);
-    setNewVault({ name: "" });
-    setSelectedVault("all");
-  };
-
   const handleSelectVault = (value) => {
-    if (value === "add-vault") {
+    if (value == "add-vault") {
       setSelectedVault(null);
       handleAddVault(); // Muestra el formulario para agregar un nuevo vault
-    } else if (value === "all") {
+    } else if (value == "all") {
       setSelectedVault("all");
     } else {
       // Busca el vault correspondiente al ID seleccionado y setéalo como el vault seleccionado
-      const selectedVault = vaults.find((vault) => vault.id === value);
+      const selectedVault = vaults.find((vault) => vault.id == value);
       setSelectedVault(selectedVault);
     }
   };
 
-  const filterVaults = (vaults, selectedVault) => 
-    vaults.filter(vault => selectedVault === "all" ? true : vault.id === selectedVault.id);
-  
+
+  // Handler to share the vault with an address
+  const handleShareVault = async () => {
+    setFetching(true);
+    if (!shareAddress) {
+      //message.error('Please enter an address to share the vault.');
+      return;
+    }
+
+    try {
+      // Aca se debe encriptar la clave simetrica con la clave publica del usuario,
+      // Que entiendo es el address
+      const tx = await contract.shareVault(selectedVault.id, shareAddress, "symmetrickey");
+      await tx.wait();
+
+      //message.success(`Vault shared with ${shareAddress}`);
+      setShareAddress(''); // Clear input after sharing
+
+      fetchVaults();
+    } catch (error) {
+      //message.error('Failed to share vault. Please try again.');
+    }
+    setFetching(false);
+  };
+
+  // Handler to unshare the vault
+  const handleUnshareVault = async (address) => {
+    setFetching(true);
+    try {
+      
+      const tx = await contract.unshareVault(selectedVault.id, address);
+      await tx.wait();
+
+      fetchVaults();
+      //message.success(`Vault unshared with ${address}`);
+    } catch (error) {
+      //message.error('Failed to unshare vault. Please try again.');
+    }
+    setFetching(false);
+  };
+
+  const orderVaults = (vaults) => {
+    // Ordenar vaults primero por shared y luego alfabéticamente por name
+    return vaults.sort((a, b) => {
+      // Ordenar por `shared`: false primero, true después
+      if (a.shared !== b.shared) {
+        return a.sharedWithMe - b.sharedWithMe ? 1 : -1; // `false` va antes de `true`
+      }
+      // Ordenar por `name` alfabéticamente
+      return (a.name || "").localeCompare(b.name || "");
+    });
+  };
+
+
+  const filterVaults = (vaults, selectedVault) => {  
+    // Filtrar los vaults en base al seleccionado
+    return vaults.filter(vault => 
+      selectedVault === "all" ? true : vault.id === selectedVault.id
+    );
+  };
+
   const extractCredentials = (vaults, selectedVault) => 
     selectedVault === "all" 
       ? vaults.flatMap(vault => vault.credentials)
@@ -148,7 +211,7 @@ function WalletView({
       label: `Passwords`,
       children: (
         <>
-          {!isAddingPassword && !isAddingVault && (
+          {!isAddingPassword && !isAddingVault && !vaultSettings && (
             <div style={{ display: "flex", alignItems: "center" }}>
               <Select
                 defaultValue="all"
@@ -160,6 +223,9 @@ function WalletView({
                   vaults.map((vault) => (
                     <Option key={vault.id} value={vault.id}>
                       {vault.name}
+                      {vault.shared && (
+                        <Button icon={<TeamOutlined />} type="secondary" style={{ padding: "0" }} />
+                      )}
                     </Option>
                   ))
                 ) : (
@@ -169,6 +235,12 @@ function WalletView({
                   + Add New Vault
                 </Option>
               </Select>
+              {selectedVault != 'all' && (<Button
+                icon={<SettingOutlined />}
+                type="primary"
+                style={{ marginLeft: "10px" }}
+                onClick={handleVaultSettings}
+              />)}
               <Button
                 icon={<PlusOutlined />}
                 type="primary"
@@ -200,7 +272,7 @@ function WalletView({
               <Button type="primary" onClick={handleSavePassword} style={{ marginRight: "10px" }}>
                 Save
               </Button>
-              <Button onClick={handleCancelAddPassword}>Cancel</Button>
+              <Button onClick={handleCancelForm}>Cancel</Button>
             </Form>
           ) : isAddingVault ? (
             <Form layout="vertical">
@@ -213,7 +285,45 @@ function WalletView({
               <Button type="primary" onClick={handleSaveVault} style={{ marginRight: "10px" }}>
                 Save
               </Button>
-              <Button onClick={handleCancelAddVault}>Cancel</Button>
+              <Button onClick={handleCancelForm}>Cancel</Button>
+            </Form>
+          ) : vaultSettings ? (
+            <Form layout="vertical">
+              <Form.Item label={<span style={{ color: "#ffffff" }}>Vault Name</span>}>
+                <Input
+                  value={newVault.name}
+                  onChange={(e) => setNewVault({ ...newVault, name: e.target.value })}
+                />
+              </Form.Item>
+
+              <Form.Item label={<span style={{ color: '#ffffff' }}>Share with Address</span>}>
+                <Input
+                  value={shareAddress}
+                  onChange={(e) => setShareAddress(e.target.value)}
+                  placeholder="Enter address to share vault"
+                />
+                <Button type="primary" onClick={handleShareVault} style={{ marginTop: '10px' }}>
+                  Share
+                </Button>
+              </Form.Item>
+
+              <List
+                header={<div style={{ color: '#ffffff' }}>Shared with:</div>}
+                bordered
+                dataSource={selectedVault.sharedWith}
+                renderItem={(address) => (
+                  <List.Item
+                    actions={[
+                      <Button type="link" danger onClick={() => handleUnshareVault(address)}>
+                        Unshare
+                      </Button>,
+                    ]}
+                  >
+                    {address.slice(0, 4)}...{address.slice(38)}
+                  </List.Item>
+                )}
+              />
+              <Button onClick={handleCancelForm} style={{ margin: '10px' }}>Cancel</Button>
             </Form>
           ) : (
             vaults && selectedVault ? (
@@ -462,10 +572,45 @@ function WalletView({
             // Desencriptar y procesar cada credencial
             const processedCredentials = await processCredentials(vault);
 
-            return { id: vault.id, name: vault.name, credentials: processedCredentials }; // Actualizar las credenciales del vault
+            return { 
+              id: vault.id, 
+              name: vault.name, 
+              sharedWith: Array.from(vault.sharedWith),
+              credentials: processedCredentials,
+              shared: vault.sharedWith.length > 0 ? true : false,
+            }; // Actualizar las credenciales del vault
         }));
 
-        setVaults(processedVaults);            
+        const retrievedSharedVaults = await contract.getSharedVaults();
+
+        // Procesar cada vault
+        const processedSharedVaults = retrievedSharedVaults.length == 0 ? [] : await Promise.all(retrievedSharedVaults
+          .map(async (vault) => {
+            // Desencriptar y procesar cada credencial
+            const processedCredentials = await processCredentials(vault);
+
+            return { 
+              id: vault.id, 
+              name: vault.name, 
+              sharedWith: Array.from(vault.sharedWith),
+              credentials: processedCredentials,
+              shared: true,
+              sharedWithMe: true
+            }; // Actualizar las credenciales del vault
+        }));
+
+        const orderedVaults = orderVaults(processedVaults.concat(processedSharedVaults));
+        setVaults(orderedVaults);   
+
+        if(selectedVault && selectedVault.id) {
+          const matchedVault = orderedVaults.filter(vault => vault.id === selectedVault.id);
+
+          // Si solo necesitas un elemento, puedes tomar el primer resultado del filtro
+          if (matchedVault.length > 0) {
+            setSelectedVault(matchedVault[0]); // Esto reasigna selectedVault, pero evita hacerlo si es un estado.
+          }
+        }
+
       } catch (error) {
           //setErrorMessage(error.message);
       }
