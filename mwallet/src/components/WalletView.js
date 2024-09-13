@@ -31,7 +31,6 @@ function WalletView({
 }) {
   const navigate = useNavigate();
   const [vaults, setVaults] = useState([]);
-  const [sharedVaults, setSharedVaults] = useState([]);
   const [tokens, setTokens] = useState(null);
   const [nfts, setNfts] = useState(null);
   const [balance, setBalance] = useState(0);
@@ -42,9 +41,10 @@ function WalletView({
   const [hash, setHash] = useState(null);
   const [selectedVault, setSelectedVault] = useState("all");
   const [contract, setContract] = useState(null);
-  const [isAddingPassword, setIsAddingPassword] = useState(false);
+  const [isAddingCredential, setIsAddingCredential] = useState(false);
   const [isAddingVault, setIsAddingVault] = useState(false);
   const [vaultSettings, setVaultSettings] = useState(false);
+  const [searchPrompt, setSearchPrompt] = useState("");
   const [newCredential, setNewCredential] = useState({
     username: "",
     password: "",
@@ -63,8 +63,8 @@ function WalletView({
   const decrypt = (data) => data;
 
 
-  const handleAddPassword = () => {
-    setIsAddingPassword(true);
+  const handleAddCredential = () => {
+    setIsAddingCredential(true);
   };
 
   const handleAddVault = () => {
@@ -75,7 +75,7 @@ function WalletView({
     setVaultSettings(true);
   };
 
-  const handleSavePassword = async () => {
+  const handleSaveCredential = async () => {
     setFetching(true);
 
     const credentialId = ethers.keccak256(ethers.toUtf8Bytes(uuidv4()));
@@ -83,7 +83,7 @@ function WalletView({
     const tx = await contract.addCredential(selectedVault.id, credentialId, encryptedData);
     await tx.wait();
     
-    setIsAddingPassword(false);
+    setIsAddingCredential(false);
     setNewCredential({ username: "", password: "", url: "" });
     setSelectedVault("all");
     await fetchVaults();
@@ -110,7 +110,7 @@ function WalletView({
 
   const handleCancelForm = () => {
     setIsAddingVault(false);
-    setIsAddingPassword(false);
+    setIsAddingCredential(false);
     setVaultSettings(false);
     setNewVault({ name: "" });
     setNewCredential({ username: "", password: "", url: "" });
@@ -211,6 +211,13 @@ function WalletView({
     selectedVault === "all" 
       ? vaults.flatMap(vault => vault.credentials)
       : vaults.reduce((acc, vault) => acc.concat(vault.credentials), []);
+
+  const filterCredentials = (credentials, searchPrompt) => {  
+    // Filtrar los vaults en base al seleccionado
+    return credentials.filter(cred => 
+      cred.url.includes(searchPrompt)
+    );
+  };
   
   const sortCredentialsByUrl = (credentials) => 
     credentials.sort((a, b) => (a.url || '').localeCompare(b.url || ''));
@@ -218,7 +225,12 @@ function WalletView({
   const getAllCredentials = () => {
     const filteredVaults = filterVaults(vaults, selectedVault);
     const allCredentials = extractCredentials(filteredVaults, selectedVault);
-    return sortCredentialsByUrl(allCredentials);
+    const filteredCredentials = filterCredentials(allCredentials, searchPrompt);
+    return sortCredentialsByUrl(filteredCredentials);
+  };
+
+  const handleSearchCredentials = (search) => {
+    return;
   };
 
   const items = [
@@ -227,45 +239,54 @@ function WalletView({
       label: `Passwords`,
       children: (
         <>
-          {!isAddingPassword && !isAddingVault && !vaultSettings && (
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <Select
-                defaultValue="all"
-                style={{ width: "100%" }}
-                onChange={handleSelectVault}
-              >
-                <Option key="all" value="all">All Vaults</Option>
-                {vaults && vaults.length > 0 ? (
-                  vaults.map((vault) => (
-                    <Option key={vault.id} value={vault.id}>
-                      {vault.name}
-                      {vault.shared && (
-                        <Button icon={<TeamOutlined />} type="secondary" style={{ padding: "0" }} />
-                      )}
-                    </Option>
-                  ))
-                ) : (
-                  <Option key="null" value="null" disabled>No vaults available</Option>
-                )}
-                <Option key="add-vault" value="add-vault">
-                  + Add New Vault
-                </Option>
-              </Select>
-              {selectedVault != 'all' && (<Button
-                icon={<SettingOutlined />}
-                type="primary"
-                style={{ marginLeft: "10px" }}
-                onClick={handleVaultSettings}
-              />)}
-              <Button
-                icon={<PlusOutlined />}
-                type="primary"
-                style={{ marginLeft: "10px" }}
-                onClick={handleAddPassword}
-              />
+          {!isAddingCredential && !isAddingVault && !vaultSettings && (
+            <div>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <Select
+                  defaultValue="all"
+                  style={{ width: "100%" }}
+                  onChange={handleSelectVault}
+                >
+                  <Option key="all" value="all">All Vaults</Option>
+                  {vaults && vaults.length > 0 ? (
+                    vaults.map((vault) => (
+                      <Option key={vault.id} value={vault.id}>
+                        {vault.name}
+                        {vault.shared && (
+                          <Button icon={<TeamOutlined />} type="secondary" style={{ padding: "0" }} />
+                        )}
+                      </Option>
+                    ))
+                  ) : (
+                    <Option key="null" value="null" disabled>No vaults available</Option>
+                  )}
+                  <Option key="add-vault" value="add-vault">
+                    + Add New Vault
+                  </Option>
+                </Select>
+                {selectedVault != 'all' && (<Button
+                  icon={<SettingOutlined />}
+                  type="primary"
+                  style={{ marginLeft: "10px" }}
+                  onClick={handleVaultSettings}
+                />)}
+                <Button
+                  icon={<PlusOutlined />}
+                  type="primary"
+                  style={{ marginLeft: "10px" }}
+                  onClick={handleAddCredential}
+                />
+              </div>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <Input.Search
+                  placeholder="Search passwords"
+                  onChange={(e) => setSearchPrompt(e.target.value)}
+                  style={{ 'margin-top': "10px" }}
+                />
+              </div>
             </div>
           )}
-          { isAddingPassword ? (
+          { isAddingCredential ? (
             <Form layout="vertical" autoComplete="off">
               <Form.Item label={<span style={{ color: "#ffffff" }}>Username</span>}>
                 <Input
@@ -286,7 +307,7 @@ function WalletView({
                   onChange={(e) => setNewCredential({ ...newCredential, url: e.target.value })}
                 />
               </Form.Item>
-              <Button type="primary" onClick={handleSavePassword} style={{ marginRight: "10px" }}>
+              <Button type="primary" onClick={handleSaveCredential} style={{ marginRight: "10px" }}>
                 Save
               </Button>
               <Button onClick={handleCancelForm}>Cancel</Button>
