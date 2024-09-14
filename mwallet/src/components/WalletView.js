@@ -214,7 +214,7 @@ function WalletView({
 
   const filterCredentials = (credentials, searchPrompt) => {  
     // Filtrar los vaults en base al seleccionado
-    return credentials.filter(cred => 
+    return credentials.filter(cred =>
       cred.url.includes(searchPrompt)
     );
   };
@@ -281,7 +281,7 @@ function WalletView({
                 <Input.Search
                   placeholder="Search passwords"
                   onChange={(e) => setSearchPrompt(e.target.value)}
-                  style={{ 'margin-top': "10px" }}
+                  style={{ 'marginTop': "10px" }}
                 />
               </div>
             </div>
@@ -575,8 +575,6 @@ function WalletView({
     let tempContract = new ethers.Contract(contractAddressSepolia, DePass_abi, signer);
     setContract(tempContract);
 
-    fetchVaults()
-
     setFetching(false);
   }
 
@@ -661,6 +659,9 @@ function WalletView({
   function logout() {
     setSeedPhrase(null);
     setWallet(null);
+    localStorage.setItem('wallet', null);
+    localStorage.setItem('seedPhrase', null);
+
     setVaults(null);
     setNfts(null);
     setTokens(null);
