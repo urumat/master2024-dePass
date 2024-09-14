@@ -1,16 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  Divider,
-  Tooltip,
-  List,
-  Avatar,
-  Spin,
-  Tabs,
-  Input,
-  Button,
-  Select,
-  Form
-} from "antd";
+import { Divider, Tooltip, List, Avatar, Spin, Tabs, Input, Button, Select, Form} from "antd";
 import { LogoutOutlined, PlusOutlined, SettingOutlined, TeamOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import logo from "../noImg.png";
@@ -18,6 +7,9 @@ import { CHAINS_CONFIG } from "../chains";
 import { ethers } from "ethers";
 import DePass_abi from '..//contracts/DePass_abi.json';
 import { v4 as uuidv4 } from 'uuid'; // Para generar IDs aleatorios
+import NFTs from './NFTs';
+import Tokens from './Tokens';
+import Transfer from './Transfer';
 const { Option } = Select; // Usa Option para el selector
 
 const contractAddressSepolia = '0x104B17bA85F06080B039bD3BEFc1BaC0d3cC19dD';
@@ -35,10 +27,7 @@ function WalletView({
   const [nfts, setNfts] = useState(null);
   const [balance, setBalance] = useState(0);
   const [fetching, setFetching] = useState(true);
-  const [amountToSend, setAmountToSend] = useState(null);
-  const [sendToAddress, setSendToAddress] = useState(null);
   const [processing, setProcessing] = useState(false);
-  const [hash, setHash] = useState(null);
   const [selectedVault, setSelectedVault] = useState("all");
   const [contract, setContract] = useState(null);
   const [isAddingCredential, setIsAddingCredential] = useState(false);
@@ -68,6 +57,7 @@ function WalletView({
   };
 
   const handleAddVault = () => {
+    setIsAddingCredential(false);
     setIsAddingVault(true);
   };
 
@@ -85,7 +75,7 @@ function WalletView({
     
     setIsAddingCredential(false);
     setNewCredential({ username: "", password: "", url: "" });
-    setSelectedVault("all");
+    //setSelectedVault("all");
     await fetchVaults();
 
     setFetching(false);
@@ -229,8 +219,101 @@ function WalletView({
     return sortCredentialsByUrl(filteredCredentials);
   };
 
-  const handleSearchCredentials = (search) => {
-    return;
+  const renderForms = () => {
+    if (isAddingCredential) {
+      return (
+        <Form layout="vertical" autoComplete="off">
+          <Select
+            defaultValue={(selectedVault == "all" 
+              ? (vaults && vaults.length > 0 ? vaults[0].id : "null")
+              : selectedVault.id)}
+            style={{ width: "100%" }}
+            onChange={handleSelectVault}
+          >
+            {vaults && vaults.length > 0 ? (
+              vaults.map((vault) => (
+                <Option key={vault.id} value={vault.id}>
+                  {vault.name}
+                  {vault.shared && (
+                    <Button icon={<TeamOutlined />} type="secondary" style={{ padding: "0" }} />
+                  )}
+                </Option>
+              ))
+            ) : (
+              <Option key="null" value="null" disabled>No vaults available</Option>
+            )}
+            <Option key="add-vault" value="add-vault">
+              + Add New Vault
+            </Option>
+          </Select>
+          <Form.Item label="Username">
+            <Input value={newCredential.username} 
+              onChange={(e) => setNewCredential({ ...newCredential, username: e.target.value })} />
+          </Form.Item>
+          <Form.Item label="Password">
+            <Input.Password autoComplete="new-password" value={newCredential.password} 
+              onChange={(e) => setNewCredential({ ...newCredential, password: e.target.value })} />
+          </Form.Item>
+          <Form.Item label="URL">
+            <Input value={newCredential.url} 
+              onChange={(e) => setNewCredential({ ...newCredential, url: e.target.value })} />
+          </Form.Item>
+          <Button type="primary" onClick={handleSaveCredential} style={{ marginRight: "10px" }}>Save</Button>
+          <Button onClick={handleCancelForm}>Cancel</Button>
+        </Form>
+      );
+    } else if (isAddingVault) {
+      return (
+        <Form layout="vertical">
+          <Form.Item label="Vault Name">
+            <Input value={newVault.name} onChange={(e) => setNewVault({ ...newVault, name: e.target.value })} />
+          </Form.Item>
+          <Button type="primary" onClick={handleSaveVault} style={{ marginRight: "10px" }}>Save</Button>
+          <Button onClick={handleCancelForm}>Cancel</Button>
+        </Form>
+      );
+    } else if (vaultSettings) {
+      return (
+        <Form layout="vertical">
+          <Form.Item label={<span style={{ color: "#ffffff" }}>Vault Name</span>}>
+            <Input
+              value={newVault.name}
+              onChange={(e) => setNewVault({ ...newVault, name: e.target.value })}
+            />
+          </Form.Item>
+
+          <Form.Item label={<span style={{ color: '#ffffff' }}>Share with Address</span>}>
+            <Input
+              value={shareAddress}
+              onChange={(e) => setShareAddress(e.target.value)}
+              placeholder="Enter address to share vault"
+            />
+            <Button type="primary" onClick={handleShareVault} style={{ marginTop: '10px' }}>
+              Share
+            </Button>
+          </Form.Item>
+
+          <List
+            header={<div style={{ color: '#ffffff' }}>Shared with:</div>}
+            bordered
+            dataSource={selectedVault.sharedWith}
+            renderItem={(address) => (
+              <List.Item
+                actions={[
+                  <Button type="link" danger onClick={() => handleUnshareVault(address)}>
+                    Unshare
+                  </Button>,
+                ]}
+              >
+                {address.slice(0, 4)}...{address.slice(38)}
+              </List.Item>
+            )}
+          />
+          <Button type="primary" danger onClick={handleDeleteVault} style={{ margin: '10px' }}>Delete Vault</Button>
+          <Button onClick={handleCancelForm} style={{ margin: '10px' }}>Cancel</Button>
+        </Form>
+      );
+    }
   };
 
   const items = [
@@ -243,7 +326,7 @@ function WalletView({
             <div>
               <div style={{ display: "flex", alignItems: "center" }}>
                 <Select
-                  defaultValue="all"
+                  defaultValue={selectedVault?.id? selectedVault.id : "all"}
                   style={{ width: "100%" }}
                   onChange={handleSelectVault}
                 >
@@ -284,266 +367,61 @@ function WalletView({
                   style={{ 'marginTop': "10px" }}
                 />
               </div>
+              <div>
+                {vaults && selectedVault ? (
+                  <>
+                    {getAllCredentials().length === 0 ? (
+                      <p>No credentials found</p>
+                    ) : (
+                      getAllCredentials().map((credential) => (
+                        <div key={credential.id}>
+                          <p>
+                            Username: {credential.username}, 
+                            Password: {credential.password}, 
+                            URL: {credential.url}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </>
+                ) : (
+                  <span>No vaults found</span>
+                )}
+              </div>
             </div>
           )}
-          { isAddingCredential ? (
-            <Form layout="vertical" autoComplete="off">
-              <Form.Item label={<span style={{ color: "#ffffff" }}>Username</span>}>
-                <Input
-                  value={newCredential.username}
-                  onChange={(e) => setNewCredential({ ...newCredential, username: e.target.value })}
-                />
-              </Form.Item>
-              <Form.Item label={<span style={{ color: "#ffffff" }}>Password</span>}>
-                <Input.Password
-                  autocomplete="new-password"
-                  value={newCredential.password}
-                  onChange={(e) => setNewCredential({ ...newCredential, password: e.target.value })}
-                />
-              </Form.Item>
-              <Form.Item label={<span style={{ color: "#ffffff" }}>Url</span>}>
-                <Input
-                  value={newCredential.url}
-                  onChange={(e) => setNewCredential({ ...newCredential, url: e.target.value })}
-                />
-              </Form.Item>
-              <Button type="primary" onClick={handleSaveCredential} style={{ marginRight: "10px" }}>
-                Save
-              </Button>
-              <Button onClick={handleCancelForm}>Cancel</Button>
-            </Form>
-          ) : isAddingVault ? (
-            <Form layout="vertical">
-              <Form.Item label={<span style={{ color: "#ffffff" }}>Vault Name</span>}>
-                <Input
-                  value={newVault.name}
-                  onChange={(e) => setNewVault({ ...newVault, name: e.target.value })}
-                />
-              </Form.Item>
-              <Button type="primary" onClick={handleSaveVault} style={{ marginRight: "10px" }}>
-                Save
-              </Button>
-              <Button onClick={handleCancelForm}>Cancel</Button>
-            </Form>
-          ) : vaultSettings ? (
-            <Form layout="vertical">
-              <Form.Item label={<span style={{ color: "#ffffff" }}>Vault Name</span>}>
-                <Input
-                  value={newVault.name}
-                  onChange={(e) => setNewVault({ ...newVault, name: e.target.value })}
-                />
-              </Form.Item>
-
-              <Form.Item label={<span style={{ color: '#ffffff' }}>Share with Address</span>}>
-                <Input
-                  value={shareAddress}
-                  onChange={(e) => setShareAddress(e.target.value)}
-                  placeholder="Enter address to share vault"
-                />
-                <Button type="primary" onClick={handleShareVault} style={{ marginTop: '10px' }}>
-                  Share
-                </Button>
-              </Form.Item>
-
-              <List
-                header={<div style={{ color: '#ffffff' }}>Shared with:</div>}
-                bordered
-                dataSource={selectedVault.sharedWith}
-                renderItem={(address) => (
-                  <List.Item
-                    actions={[
-                      <Button type="link" danger onClick={() => handleUnshareVault(address)}>
-                        Unshare
-                      </Button>,
-                    ]}
-                  >
-                    {address.slice(0, 4)}...{address.slice(38)}
-                  </List.Item>
-                )}
-              />
-              <Button danger onClick={handleDeleteVault} style={{ margin: '10px' }}>Delete Vault</Button>
-              <Button onClick={handleCancelForm} style={{ margin: '10px' }}>Cancel</Button>
-            </Form>
-          ) : (
-            vaults && selectedVault ? (
-              <>
-                {getAllCredentials().length === 0 ? (
-                  <p>No credentials found</p>
-                ) : (
-                  getAllCredentials().map((credential) => (
-                    <div key={credential.id}>
-                      <p>
-                        Username: {credential.username}, 
-                        Password: {credential.password}, 
-                        URL: {credential.url}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </>
-            ) : (
-              <span>No vaults found</span>
-            )
-          )}
+          {renderForms()}
         </>
       ),
     },
     {
       key: "3",
       label: `Tokens`,
-      children: (
-        <>
-          {tokens ? (
-            <>
-              <List
-                bordered
-                className="tokenList"
-                itemLayout="horizontal"
-                dataSource={tokens}
-                renderItem={(item, index) => (
-                  <List.Item
-                    className="tokenName"
-                    style={{ textAlign: "left" }}
-                  >
-                    <List.Item.Meta
-                      avatar={<Avatar src={item.logo || logo} />}
-                      title={item.symbol}
-                      description={item.name}
-                    />
-                    <div className="tokenAmount">
-                      {(
-                        Number(item.balance) /
-                        10 ** Number(item.decimals)
-                      ).toFixed(3)}{" "}
-                      Tokens
-                    </div>
-                  </List.Item>
-                )}
-              />
-            </>
-          ) : (
-            <>
-              <span>You seem to not have any tokens yet</span>
-            </>
-          )}
-        </>
-      ),
+      children: <Tokens tokens={tokens} logo={logo} />,
     },
     {
       key: "2",
       label: `NFTs`,
-      children: (
-        <>
-          {nfts ? (
-            <>
-              {nfts.map((e, i) => {
-                return (
-                  <>
-                    {e && (
-                      <img
-                        key={i}
-                        className="nftImage"
-                        alt="nftImage"
-                        src={e}
-                      />
-                    )}
-                  </>
-                );
-              })}
-            </>
-          ) : (
-            <>
-              <span>You seem to not have any NFTs yet</span>
-            </>
-          )}
-        </>
-      ),
+      children: <NFTs nfts={nfts} />,
     },
     {
       key: "1",
       label: `Transfer`,
       children: (
-        <>
-          <h3>Native Balance </h3>
-          <h1>
-            {balance.toFixed(3)} {CHAINS_CONFIG[selectedChain].ticker}
-          </h1>
-          <div className="sendRow">
-            <p style={{ width: "90px", textAlign: "left" }}> To:</p>
-            <Input
-              value={sendToAddress}
-              onChange={(e) => setSendToAddress(e.target.value)}
-              placeholder="0x..."
-            />
-          </div>
-          <div className="sendRow">
-            <p style={{ width: "90px", textAlign: "left" }}> Amount:</p>
-            <Input
-              value={amountToSend}
-              onChange={(e) => setAmountToSend(e.target.value)}
-              placeholder="Native tokens you wish to send..."
-            />
-          </div>
-          <Button
-            style={{ width: "100%", marginTop: "20px", marginBottom: "20px" }}
-            type="primary"
-            onClick={() => sendTransaction(sendToAddress, amountToSend)}
-          >
-            Send Tokens
-          </Button>
-          {processing && (
-            <>
-              <Spin />
-              {hash && (
-                <Tooltip title={hash}>
-                  <p>Hover For Tx Hash</p>
-                </Tooltip>
-              )}
-            </>
-          )}
-        </>
+        <Transfer
+          balance={balance}
+          CHAINS_CONFIG={CHAINS_CONFIG}
+          selectedChain={selectedChain}
+          seedPhrase={seedPhrase}
+          processing={processing}
+          setProcessing={setProcessing}
+          getAccountTokens={getAccountTokens}
+        />
       ),
     },
   ];
 
-  async function sendTransaction(to, amount) {
-    const chain = CHAINS_CONFIG[selectedChain];
-
-    const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
-
-    const privateKey = ethers.Wallet.fromPhrase(seedPhrase).privateKey;
-
-    const wallet = new ethers.Wallet(privateKey, provider);
-
-    const tx = {
-      to: to,
-      value: ethers.parseEther(amount.toString()),
-    };
-
-    setProcessing(true);
-    try {
-      const transaction = await wallet.sendTransaction(tx);
-
-      setHash(transaction.hash);
-      const receipt = await transaction.wait();
-
-      setHash(null);
-      setProcessing(false);
-      setAmountToSend(null);
-      setSendToAddress(null);
-
-      if (receipt.status === 1) {
-        getAccountTokens();
-      } else {
-        console.log("failed");
-      }
-    } catch (err) {
-      setHash(null);
-      setProcessing(false);
-      setAmountToSend(null);
-      setSendToAddress(null);
-    }
-  }
+  
 
   async function getAccountTokens() {
     setFetching(true);

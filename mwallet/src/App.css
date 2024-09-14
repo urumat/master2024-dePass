@@ -172,3 +172,7 @@ header {
 .ant-list-item-meta-description {
   color: white;
 }
+
+label {
+  color: white !important;
+}
