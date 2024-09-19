@@ -181,11 +181,11 @@ function WalletView({
     // Ordenar vaults primero por shared y luego alfabéticamente por name
     return vaults.sort((a, b) => {
       // Ordenar por `shared`: false primero, true después
-      if (a.shared !== b.shared) {
+      if (a.sharedWithMe !== b.sharedWithMe) {
         return a.sharedWithMe - b.sharedWithMe ? 1 : -1; // `false` va antes de `true`
       }
       // Ordenar por `name` alfabéticamente
-      return (a.name || "").localeCompare(b.name || "");
+      return (a.name).localeCompare(b.name);
     });
   };
 
@@ -259,7 +259,7 @@ function WalletView({
               onChange={(e) => setNewCredential({ ...newCredential, url: e.target.value })} />
           </Form.Item>
           <Button type="primary" onClick={handleSaveCredential} style={{ marginRight: "10px" }}>Save</Button>
-          <Button onClick={handleCancelForm}>Cancel</Button>
+          <Button onClick={handleCancelForm} style={{ marginBottom: '20px' }}>Cancel</Button>
         </Form>
       );
     } else if (isAddingVault) {
@@ -275,14 +275,14 @@ function WalletView({
     } else if (vaultSettings) {
       return (
         <Form layout="vertical">
-          <Form.Item label={<span style={{ color: "#ffffff" }}>Vault Name</span>}>
+          <Form.Item label="Vault Name">
             <Input
               value={newVault.name}
               onChange={(e) => setNewVault({ ...newVault, name: e.target.value })}
             />
           </Form.Item>
 
-          <Form.Item label={<span style={{ color: '#ffffff' }}>Share with Address</span>}>
+          <Form.Item label="Share with Address">
             <Input
               value={shareAddress}
               onChange={(e) => setShareAddress(e.target.value)}
@@ -310,7 +310,7 @@ function WalletView({
             )}
           />
           <Button type="primary" danger onClick={handleDeleteVault} style={{ margin: '10px' }}>Delete Vault</Button>
-          <Button onClick={handleCancelForm} style={{ margin: '10px' }}>Cancel</Button>
+          <Button onClick={handleCancelForm} style={{ margin: '10px' }}>Close</Button>
         </Form>
       );
     }
@@ -493,6 +493,7 @@ function WalletView({
               sharedWith: Array.from(vault.sharedWith),
               credentials: processedCredentials,
               shared: vault.sharedWith.length > 0 ? true : false,
+              sharedWithMe: false
             }; // Actualizar las credenciales del vault
         }));
 
