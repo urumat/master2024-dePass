@@ -23,6 +23,7 @@ function WalletView({
 }) {
   const navigate = useNavigate();
   const [vaults, setVaults] = useState([]);
+  const [credentials, setCredentials] = useState([]);
   const [tokens, setTokens] = useState(null);
   const [nfts, setNfts] = useState(null);
   const [balance, setBalance] = useState(0);
@@ -48,8 +49,148 @@ function WalletView({
   const DePassInterface = new ethers.Interface(DePass_abi);
 
   // Mock encryption/decryption functions
-  const encrypt = (data) => JSON.stringify(data);;
+  const encrypt = (data) => JSON.stringify(data);
   const decrypt = (data) => data;
+
+
+
+  // Función para obtener y parsear el valor de localStorage
+  function getLocalStorageItem(key) {
+    const item = localStorage.getItem(key);
+    return item && item !== 'null' ? item : null;
+  }
+
+  // Función para inyectar el ícono en el campo de nombre de usuario
+  const injectIcon = (inputElement) => {
+    console.log("Injecting icon...");
+
+    // Crear un div contenedor para el ícono
+    const iconContainer = document.createElement('div');
+    iconContainer.style.position = 'relative';
+
+    // Crear el ícono de la extensión
+    const icon = document.createElement('img');
+    icon.src = "https://www.caliset.com/wp-content/uploads/2019/04/logo-web-e1694301662876.png";
+    icon.style.position = 'absolute';
+    icon.style.right = '10px';
+    icon.style.top = '50%';
+    icon.style.transform = 'translateY(-50%)';
+    icon.style.cursor = 'pointer';
+    icon.style.width = '10px';
+
+    // Insertar el ícono dentro del input
+    inputElement.style.paddingRight = '30px'; // Ajustar el padding del input para no tapar el ícono
+    inputElement.parentElement.style.position = 'relative'; // Asegurar que el contenedor del input permita el ícono
+    inputElement.parentElement.appendChild(icon);
+
+    // Agregar evento para desplegar el selector de credenciales al hacer clic en el ícono
+    icon.addEventListener('click', () => {
+      showCredentialDropdown(inputElement);
+    });
+  };
+
+  // Función para desplegar el selector de credenciales
+  const showCredentialDropdown = (inputElement) => {
+    // Crear el dropdown para mostrar las credenciales guardadas
+    const dropdown = document.createElement('ul');
+    dropdown.style.position = 'absolute';
+    dropdown.style.top = `${inputElement.getBoundingClientRect().bottom}px`;
+    dropdown.style.left = `${inputElement.getBoundingClientRect().left}px`;
+    dropdown.style.width = `${inputElement.offsetWidth}px`;
+    dropdown.style.backgroundColor = 'white';
+    dropdown.style.border = '1px solid #ccc';
+    dropdown.style.listStyleType = 'none';
+    dropdown.style.padding = '10px';
+    dropdown.style.zIndex = '9999';
+
+    // Obtener las credenciales almacenadas para la URL actual
+    const savedCredentials = JSON.parse(getLocalStorageItem('savedCredentials')) || [];
+    //const credentialsForSite = savedCredentials.filter(cred => cred.url === window.location.href);
+
+    //localStorage.get('savedCredentials', (data) => {
+    //  const credentials = data.savedCredentials || [];
+
+      // Filtrar credenciales por URL
+    //  const credentialsForSite = credentials.filter(cred => cred.url === window.location.href);
+
+    if (savedCredentials.length === 0) {
+      const noCreds = document.createElement('li');
+      noCreds.innerText = 'No credentials found';
+      dropdown.appendChild(noCreds);
+    } else {
+      savedCredentials.forEach((cred) => {
+        const listItem = document.createElement('li');
+        listItem.innerText = cred.username;
+        listItem.style.cursor = 'pointer';
+        listItem.addEventListener('click', () => {
+          fillCredentials(cred);
+          dropdown.remove(); // Ocultar el dropdown después de seleccionar una credencial
+        });
+        dropdown.appendChild(listItem);
+      });
+    }
+    //});
+
+    // Agregar el dropdown al body
+    document.body.appendChild(dropdown);
+
+    setTimeout(() => {
+      // Función para cerrar el dropdown al hacer clic en el documento
+      const closeDropdown = (event) => {
+        if (!dropdown.contains(event.target) && event.target !== inputElement) {
+          dropdown.remove();
+          document.removeEventListener('click', closeDropdown);
+        }
+      };
+
+      // Escuchar clics en el documento para cerrar el dropdown
+      document.addEventListener('click', closeDropdown);
+    }, 200);
+  };
+
+  // Función para rellenar las credenciales en los campos de usuario y contraseña
+  const fillCredentials = (cred) => {
+    const usernameInput = document.querySelector('input[type="text"][name="username"], input[type="text"][id="username"]');
+    const passwordInput = document.querySelector('input[type="password"]');
+
+    if (usernameInput) {
+      usernameInput.value = cred.username;
+    }
+
+    if (passwordInput) {
+      passwordInput.value = cred.password;
+    }
+};
+
+  // Nueva función para simular la funcionalidad de content.js
+  const handleAutofillDetection = () => {
+    console.log("Detecting password field...");
+    
+    // Escuchar el DOM para inyectar el ícono dinámicamente
+    const usernameInput = document.querySelector('input[type="text"][name="username"], input[type="text"][id="username"]');
+    const passwordInput = document.querySelector('input[type="password"]');
+    if (usernameInput && passwordInput) {
+      injectIcon(usernameInput);
+    }
+
+    const observer = new MutationObserver(() => {
+      const usernameInput = document.querySelector('input[type="text"][name="username"], input[type="text"][id="username"]');
+      if (usernameInput && !usernameInput.parentElement.querySelector('img')) {
+        injectIcon(usernameInput);
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  };
+
+  useEffect(() => {
+    handleAutofillDetection();
+  }, []);
+
+  useEffect(() => {
+    if(vaults) {
+      getAllCredentials();
+    }
+  }, vaults, selectedVault);
 
 
   const handleAddCredential = () => {
@@ -216,7 +357,8 @@ function WalletView({
     const filteredVaults = filterVaults(vaults, selectedVault);
     const allCredentials = extractCredentials(filteredVaults, selectedVault);
     const filteredCredentials = filterCredentials(allCredentials, searchPrompt);
-    return sortCredentialsByUrl(filteredCredentials);
+    const sortedCredentials = sortCredentialsByUrl(filteredCredentials);
+    setCredentials(sortedCredentials);
   };
 
   const renderForms = () => {
@@ -370,10 +512,10 @@ function WalletView({
               <div>
                 {vaults && selectedVault ? (
                   <>
-                    {getAllCredentials().length === 0 ? (
+                    {credentials.length === 0 ? (
                       <p>No credentials found</p>
                     ) : (
-                      getAllCredentials().map((credential) => (
+                      credentials.map((credential) => (
                         <div key={credential.id}>
                           <p>
                             Username: {credential.username}, 
@@ -417,6 +559,24 @@ function WalletView({
           setProcessing={setProcessing}
           getAccountTokens={getAccountTokens}
         />
+      ),
+    },
+    {
+      key: "5",
+      label: `Login`,
+      children: (
+        <Form layout="vertical">
+          <input type="hidden" value="prayer" />
+          <Form.Item label="Username">
+            <Input name="username" placeholder="Enter your username" autoComplete="username" />
+          </Form.Item>
+          <Form.Item label="Password">
+            <Input.Password name="password" placeholder="Enter your password" autoComplete="new-password"/>
+          </Form.Item>
+          <Button type="primary" style={{ marginRight: "10px" }}>
+            Login
+          </Button>
+        </Form>
       ),
     },
   ];
