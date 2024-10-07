@@ -60,37 +60,60 @@ function WalletView({
     return item && item !== 'null' ? item : null;
   }
 
-  // Función para inyectar el ícono en el campo de nombre de usuario
+  // Función para inyectar el ícono y el chevron en el campo de nombre de usuario
   const injectIcon = (inputElement) => {
-    console.log("Injecting icon...");
+    console.log("Injecting icon and chevron...");
 
-    // Crear un div contenedor para el ícono
+    // Verificar si el botón ya existe
+    if (!inputElement || inputElement.buttonCreated) return;
+
+    // Crear un div contenedor para el ícono y el chevron
     const iconContainer = document.createElement('div');
-    iconContainer.style.position = 'relative';
+    iconContainer.classList.add('icon-container'); // Agrega clase al contenedor
 
-    // Crear el ícono de la extensión
-    const icon = document.createElement('img');
-    icon.src = "https://www.caliset.com/wp-content/uploads/2019/04/logo-web-e1694301662876.png";
-    icon.style.position = 'absolute';
-    icon.style.right = '10px';
-    icon.style.top = '50%';
-    icon.style.transform = 'translateY(-50%)';
-    icon.style.cursor = 'pointer';
-    icon.style.width = '10px';
+    // Crear el ícono de la aplicación
+    const icon = document.createElement('div');
+    icon.classList.add('app-icon'); // Clase para el ícono de la app
 
-    // Insertar el ícono dentro del input
-    inputElement.style.paddingRight = '30px'; // Ajustar el padding del input para no tapar el ícono
-    inputElement.parentElement.style.position = 'relative'; // Asegurar que el contenedor del input permita el ícono
+    // Crear el chevron
+    const chevron = document.createElement('div');
+    chevron.classList.add('chevron-icon'); // Clase para el ícono del chevron
+
+    // Insertar el ícono y el chevron dentro del input
+    inputElement.style.paddingRight = '40px'; // Ajustar el padding del input para no tapar los íconos
+    inputElement.parentElement.style.position = 'relative'; // Asegurar que el contenedor del input permita los íconos
     inputElement.parentElement.appendChild(icon);
+    icon.appendChild(chevron);
 
-    // Agregar evento para desplegar el selector de credenciales al hacer clic en el ícono
-    icon.addEventListener('click', () => {
-      showCredentialDropdown(inputElement);
+    // Agregar evento para desplegar el selector de credenciales al hacer clic en el chevron
+    icon.addEventListener('click', (event) => {
+      if(chevron.classList.contains('open')) {
+        chevron.classList.remove('open');
+        return;
+      }
+
+      event.stopPropagation();
+      toggleChevron(chevron);
+      showCredentialDropdown(inputElement, chevron);
     });
+
+    // Cerrar el dropdown al hacer clic fuera
+    document.addEventListener("click", () => {
+      chevron.classList.remove('open');
+    });
+
+    // Marcar el input como procesado para evitar múltiples botones
+    inputElement.buttonCreated = true;
+  };
+
+  
+  // Función para girar el chevron y desplegar/ocultar el dropdown
+  const toggleChevron = (chevron) => {
+    chevron.classList.toggle('open'); // Cambia la clase 'open' para girar el chevron
   };
 
   // Función para desplegar el selector de credenciales
-  const showCredentialDropdown = (inputElement) => {
+  const showCredentialDropdown = (inputElement, chevron) => {
     // Crear el dropdown para mostrar las credenciales guardadas
     const dropdown = document.createElement('ul');
     dropdown.style.position = 'absolute';
@@ -104,19 +127,16 @@ function WalletView({
     dropdown.style.zIndex = '9999';
 
     // Obtener las credenciales almacenadas para la URL actual
-    const savedCredentials = JSON.parse(getLocalStorageItem('savedCredentials')) || [];
-    //const credentialsForSite = savedCredentials.filter(cred => cred.url === window.location.href);
+    const creds = getLocalStorageItem('credentials');
+    const savedCredentials = JSON.parse(creds);
 
-    //localStorage.get('savedCredentials', (data) => {
-    //  const credentials = data.savedCredentials || [];
-
-      // Filtrar credenciales por URL
-    //  const credentialsForSite = credentials.filter(cred => cred.url === window.location.href);
 
     if (savedCredentials.length === 0) {
       const noCreds = document.createElement('li');
       noCreds.innerText = 'No credentials found';
       dropdown.appendChild(noCreds);
+      chevron.classList.remove('open');
+      return; // No continuar si no hay credenciales
     } else {
       savedCredentials.forEach((cred) => {
         const listItem = document.createElement('li');
@@ -125,11 +145,11 @@ function WalletView({
         listItem.addEventListener('click', () => {
           fillCredentials(cred);
           dropdown.remove(); // Ocultar el dropdown después de seleccionar una credencial
+          chevron.classList.remove('open');
         });
         dropdown.appendChild(listItem);
       });
     }
-    //});
 
     // Agregar el dropdown al body
     document.body.appendChild(dropdown);
@@ -139,6 +159,7 @@ function WalletView({
       const closeDropdown = (event) => {
         if (!dropdown.contains(event.target) && event.target !== inputElement) {
           dropdown.remove();
+          chevron.classList.remove('open');
           document.removeEventListener('click', closeDropdown);
         }
       };
@@ -147,6 +168,7 @@ function WalletView({
       document.addEventListener('click', closeDropdown);
     }, 200);
   };
+
 
   // Función para rellenar las credenciales en los campos de usuario y contraseña
   const fillCredentials = (cred) => {
@@ -169,9 +191,15 @@ function WalletView({
     // Escuchar el DOM para inyectar el ícono dinámicamente
     const usernameInput = document.querySelector('input[type="text"][name="username"], input[type="text"][id="username"]');
     const passwordInput = document.querySelector('input[type="password"]');
-    if (usernameInput && passwordInput) {
-      injectIcon(usernameInput);
+
+    if (passwordInput) {
+      if (usernameInput) {
+        injectIcon(usernameInput);
+      }
+      
+      injectIcon(passwordInput);
     }
+
 
     const observer = new MutationObserver(() => {
       const usernameInput = document.querySelector('input[type="text"][name="username"], input[type="text"][id="username"]');
@@ -188,9 +216,13 @@ function WalletView({
 
   useEffect(() => {
     if(vaults) {
-      getAllCredentials();
+      const allCredentials = extractCredentials(vaults);
+      const sortedCredentials = sortCredentialsByUrl(allCredentials);
+
+      //const stringCredentials = sortedCredentials.map((cred) => JSON.stringify(cred));
+      localStorage.setItem('credentials', JSON.stringify(sortedCredentials));
     }
-  }, vaults, selectedVault);
+  }, vaults);
 
 
   const handleAddCredential = () => {
@@ -338,10 +370,8 @@ function WalletView({
     );
   };
 
-  const extractCredentials = (vaults, selectedVault) => 
-    selectedVault === "all" 
-      ? vaults.flatMap(vault => vault.credentials)
-      : vaults.reduce((acc, vault) => acc.concat(vault.credentials), []);
+  const extractCredentials = (vaults) => 
+    vaults.flatMap(vault => vault.credentials);
 
   const filterCredentials = (credentials, searchPrompt) => {  
     // Filtrar los vaults en base al seleccionado
@@ -355,10 +385,10 @@ function WalletView({
   
   const getAllCredentials = () => {
     const filteredVaults = filterVaults(vaults, selectedVault);
-    const allCredentials = extractCredentials(filteredVaults, selectedVault);
+    const allCredentials = extractCredentials(filteredVaults);
     const filteredCredentials = filterCredentials(allCredentials, searchPrompt);
     const sortedCredentials = sortCredentialsByUrl(filteredCredentials);
-    setCredentials(sortedCredentials);
+    return sortedCredentials;
   };
 
   const renderForms = () => {
@@ -512,10 +542,10 @@ function WalletView({
               <div>
                 {vaults && selectedVault ? (
                   <>
-                    {credentials.length === 0 ? (
+                    {getAllCredentials().length === 0 ? (
                       <p>No credentials found</p>
                     ) : (
-                      credentials.map((credential) => (
+                      getAllCredentials().map((credential) => (
                         <div key={credential.id}>
                           <p>
                             Username: {credential.username}, 
