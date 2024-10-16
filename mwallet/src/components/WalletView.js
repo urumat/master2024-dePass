@@ -52,175 +52,19 @@ function WalletView({
   const encrypt = (data) => JSON.stringify(data);
   const decrypt = (data) => data;
 
-
-
-  // Función para obtener y parsear el valor de localStorage
-  function getLocalStorageItem(key) {
-    const item = localStorage.getItem(key);
-    return item && item !== 'null' ? item : null;
-  }
-
-  // Función para inyectar el ícono y el chevron en el campo de nombre de usuario
-  const injectIcon = (inputElement) => {
-    console.log("Injecting icon and chevron...");
-
-    // Verificar si el botón ya existe
-    if (!inputElement || inputElement.buttonCreated) return;
-
-    // Crear un div contenedor para el ícono y el chevron
-    const iconContainer = document.createElement('div');
-    iconContainer.classList.add('icon-container'); // Agrega clase al contenedor
-
-    // Crear el ícono de la aplicación
-    const icon = document.createElement('div');
-    icon.classList.add('app-icon'); // Clase para el ícono de la app
-
-    // Crear el chevron
-    const chevron = document.createElement('div');
-    chevron.classList.add('chevron-icon'); // Clase para el ícono del chevron
-
-    // Insertar el ícono y el chevron dentro del input
-    inputElement.style.paddingRight = '40px'; // Ajustar el padding del input para no tapar los íconos
-    inputElement.parentElement.style.position = 'relative'; // Asegurar que el contenedor del input permita los íconos
-    inputElement.parentElement.appendChild(icon);
-    icon.appendChild(chevron);
-
-    // Agregar evento para desplegar el selector de credenciales al hacer clic en el chevron
-    icon.addEventListener('click', (event) => {
-      if(chevron.classList.contains('open')) {
-        chevron.classList.remove('open');
-        return;
-      }
-
-      event.stopPropagation();
-      toggleChevron(chevron);
-      showCredentialDropdown(inputElement, chevron);
-    });
-
-    // Cerrar el dropdown al hacer clic fuera
-    document.addEventListener("click", () => {
-      chevron.classList.remove('open');
-    });
-
-    // Marcar el input como procesado para evitar múltiples botones
-    inputElement.buttonCreated = true;
-  };
-
-  
-  // Función para girar el chevron y desplegar/ocultar el dropdown
-  const toggleChevron = (chevron) => {
-    chevron.classList.toggle('open'); // Cambia la clase 'open' para girar el chevron
-  };
-
-  // Función para desplegar el selector de credenciales
-  const showCredentialDropdown = (inputElement, chevron) => {
-    // Crear el dropdown para mostrar las credenciales guardadas
-    const dropdown = document.createElement('ul');
-    dropdown.style.position = 'absolute';
-    dropdown.style.top = `${inputElement.getBoundingClientRect().bottom}px`;
-    dropdown.style.left = `${inputElement.getBoundingClientRect().left}px`;
-    dropdown.style.width = `${inputElement.offsetWidth}px`;
-    dropdown.style.backgroundColor = 'white';
-    dropdown.style.border = '1px solid #ccc';
-    dropdown.style.listStyleType = 'none';
-    dropdown.style.padding = '10px';
-    dropdown.style.zIndex = '9999';
-
-    // Obtener las credenciales almacenadas para la URL actual
-    const creds = getLocalStorageItem('credentials');
-    const savedCredentials = JSON.parse(creds);
-
-
-    if (savedCredentials.length === 0) {
-      const noCreds = document.createElement('li');
-      noCreds.innerText = 'No credentials found';
-      dropdown.appendChild(noCreds);
-      chevron.classList.remove('open');
-      return; // No continuar si no hay credenciales
-    } else {
-      savedCredentials.forEach((cred) => {
-        const listItem = document.createElement('li');
-        listItem.innerText = cred.username;
-        listItem.style.cursor = 'pointer';
-        listItem.addEventListener('click', () => {
-          fillCredentials(cred);
-          dropdown.remove(); // Ocultar el dropdown después de seleccionar una credencial
-          chevron.classList.remove('open');
-        });
-        dropdown.appendChild(listItem);
-      });
-    }
-
-    // Agregar el dropdown al body
-    document.body.appendChild(dropdown);
-
-    setTimeout(() => {
-      // Función para cerrar el dropdown al hacer clic en el documento
-      const closeDropdown = (event) => {
-        if (!dropdown.contains(event.target) && event.target !== inputElement) {
-          dropdown.remove();
-          chevron.classList.remove('open');
-          document.removeEventListener('click', closeDropdown);
-        }
-      };
-
-      // Escuchar clics en el documento para cerrar el dropdown
-      document.addEventListener('click', closeDropdown);
-    }, 200);
-  };
-
-
-  // Función para rellenar las credenciales en los campos de usuario y contraseña
-  const fillCredentials = (cred) => {
-    const usernameInput = document.querySelector('input[type="text"][name="username"], input[type="text"][id="username"]');
-    const passwordInput = document.querySelector('input[type="password"]');
-
-    if (usernameInput) {
-      usernameInput.value = cred.username;
-    }
-
-    if (passwordInput) {
-      passwordInput.value = cred.password;
-    }
-};
-
-  // Nueva función para simular la funcionalidad de content.js
-  const handleAutofillDetection = () => {
-    console.log("Detecting password field...");
-    
-    // Escuchar el DOM para inyectar el ícono dinámicamente
-    const usernameInput = document.querySelector('input[type="text"][name="username"], input[type="text"][id="username"]');
-    const passwordInput = document.querySelector('input[type="password"]');
-
-    if (passwordInput) {
-      if (usernameInput) {
-        injectIcon(usernameInput);
-      }
-      
-      injectIcon(passwordInput);
-    }
-
-
-    const observer = new MutationObserver(() => {
-      const usernameInput = document.querySelector('input[type="text"][name="username"], input[type="text"][id="username"]');
-      if (usernameInput && !usernameInput.parentElement.querySelector('img')) {
-        injectIcon(usernameInput);
-      }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-  };
-
-  useEffect(() => {
-    handleAutofillDetection();
-  }, []);
-
   useEffect(() => {
     if(vaults) {
       const allCredentials = extractCredentials(vaults);
       const sortedCredentials = sortCredentialsByUrl(allCredentials);
-
-      //const stringCredentials = sortedCredentials.map((cred) => JSON.stringify(cred));
-      localStorage.setItem('credentials', JSON.stringify(sortedCredentials));
+      setCredentials(sortedCredentials);
+      // eslint-disable-next-line no-undef
+      chrome.storage.local.set({ credentials: sortedCredentials }, () => {
+        console.log('Credenciales guardadas en chrome.storage');
+      });
+      // eslint-disable-next-line no-undef
+      chrome.runtime.sendMessage({ type: 'NEW_CREDENTIALS' }, (response) => {
+        console.log('Respuesta del background:', response);
+      });
     }
   }, vaults);
 
@@ -590,27 +434,8 @@ function WalletView({
           getAccountTokens={getAccountTokens}
         />
       ),
-    },
-    {
-      key: "5",
-      label: `Login`,
-      children: (
-        <Form layout="vertical">
-          <input type="hidden" value="prayer" />
-          <Form.Item label="Username">
-            <Input name="username" placeholder="Enter your username" autoComplete="username" />
-          </Form.Item>
-          <Form.Item label="Password">
-            <Input.Password name="password" placeholder="Enter your password" autoComplete="new-password"/>
-          </Form.Item>
-          <Button type="primary" style={{ marginRight: "10px" }}>
-            Login
-          </Button>
-        </Form>
-      ),
-    },
+    }
   ];
-
   
 
   async function getAccountTokens() {
@@ -730,6 +555,12 @@ function WalletView({
     setWallet(null);
     localStorage.setItem('wallet', null);
     localStorage.setItem('seedPhrase', null);
+    // eslint-disable-next-line no-undef
+    chrome.storage.local.set({ credentials: null }, () => {});
+    // eslint-disable-next-line no-undef
+    chrome.runtime.sendMessage({ type: 'NEW_CREDENTIALS' }, (response) => {
+      console.log('Respuesta del background:', response);
+    });
 
     setVaults(null);
     setNfts(null);

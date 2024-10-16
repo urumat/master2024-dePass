@@ -1,13 +1,50 @@
 {
-  "name": "Crypto Wallet Project",
+  "name": "DePass",
   "version": "1.0.0",
-  "description": "Self Custodial and Decentralized Crypto Wallet",
+  "description": "Self Custodial and Decentralized Password Manager",
   "manifest_version": 3,
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "all_frames": true,
+      "matches": ["<all_urls>"],
+      "js": ["injected/content.js"],
+      "css": ["injected/styles/inline-tooltip.css"],
+      "run_at": "document_start"
+    }
+  ],
   "action": {
     "default_popup": "index.html",
-    "default_title": "Open Wallet"
+    "default_title": "DePass"
   },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "images/icons/*.svg",
+        "images/*.svg"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "permissions": [
-    "storage"
+    "activeTab",
+    "alarms",
+    "contextMenus",
+    "downloads",
+    "idle",
+    "management",
+    "nativeMessaging",
+    "notifications",
+    "offscreen",
+    "privacy",
+    "scripting",
+    "storage",
+    "tabs",
+    "webNavigation",
+    "webRequest",
+    "declarativeNetRequest",
+    "webRequestAuthProvider"
   ]
 }
