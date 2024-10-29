@@ -1,5 +1,8 @@
  
- 
+ let username = '';
+ let password = '';
+
+
  // Función para obtener y parsear el valor de localStorage
  function getLocalStorageItem(key) {
   const item = localStorage.getItem(key);
@@ -169,13 +172,34 @@ function handleClick(event) {
   if (passwordInput) {
     if (usernameInput) {
       injectIcon(usernameInput);
+
+      username = usernameInput.value;
+
+      usernameInput.addEventListener('input', (event) => {
+        username = event.target.value;
+      });
     }
 
     if (emailInput) {
       injectIcon(emailInput);
+
+      username = emailInput.value;
+      console.log("username: ", username)
+      emailInput.addEventListener('input', (event) => {
+        username = event.target.value;
+        console.log("username: ", username)
+      });
     }
     
     injectIcon(passwordInput);
+
+    password = passwordInput.value;
+    console.log("password: ", username)
+    // Escuchar el evento input en el campo de contraseña
+    passwordInput.addEventListener('input', (event) => {
+      password = event.target.value;
+      console.log("password: ", password)
+    });
 
     injectCustomCSS();
   }
@@ -183,6 +207,49 @@ function handleClick(event) {
 
 document.addEventListener('click', handleClick);
 
+document.addEventListener('submit', handleSubmit);
+
+function handleSubmit(event) {
+  // Escuchar el DOM para inyectar el ícono dinámicamente
+  const usernameInput = document.querySelector('input[type="text"][name="username"], input[type="text"][id="username"]');
+  const emailInput = document.querySelector('input[type="text"][name="email"], input[type="text"][id="email"]');
+  const passwordInput = document.querySelector('input[type="password"]');
+
+  if (passwordInput) {
+    if (usernameInput) {
+      username = usernameInput.value;
+    }
+
+    if (emailInput) {
+      username = emailInput.value;
+    }
+
+    password = passwordInput.value;
+
+    if(username && password){
+      const creds = getLocalStorageItem('credentials');
+      const savedCredentials = JSON.parse(creds);
+
+      const credentialExists = savedCredentials.some(cred => 
+        cred.username == username && cred.password == password
+      );
+
+      if(!credentialExists) {
+        // Aquí las credenciales están sin encriptar, capturamos antes de que se envíen
+        chrome.runtime.sendMessage({
+          type: 'NEW_CREDENTIALS_DETECTED',
+          credentials: {
+            username,
+            password,
+            url: window.location.hostname
+          }
+        }, (response) => {
+          console.log('Credenciales enviadas al background:', response);
+        });
+      }
+    }
+  }
+}
 
 // Función para inyectar el CSS con las rutas correctas de los iconos
 function injectCustomCSS() {

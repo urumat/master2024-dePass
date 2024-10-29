@@ -73,3 +73,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ success: true });
   }
 });
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'NEW_CREDENTIALS_DETECTED') {
+    console.log('Nuevas credenciales detectadas:', request.credentials);
+
+    // Guardar las credenciales temporalmente en chrome.storage
+    chrome.storage.local.set({ tempCredentials: request.credentials }, () => {
+      console.log('Credenciales de login (sin encriptar) guardadas temporalmente');
+
+      // Abrir el popup de la extensión para que el usuario pueda confirmar el guardado
+      chrome.action.openPopup();
+    });
+
+    sendResponse({ success: true });
+  }
+});

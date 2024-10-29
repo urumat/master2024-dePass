@@ -68,6 +68,21 @@ function WalletView({
     }
   }, vaults);
 
+  useEffect(() => {
+    // Cargar las credenciales temporales de chrome.storage
+    // eslint-disable-next-line no-undef
+    chrome.storage.local.get(['tempCredentials'], (result) => {
+      if (result.tempCredentials) {
+        setNewCredential({ 
+          username: result.tempCredentials.username, 
+          password: result.tempCredentials.password, 
+          url: result.tempCredentials.url 
+        });
+        setIsAddingCredential(true);
+      }
+    });
+  }, []);
+
 
   const handleAddCredential = () => {
     setIsAddingCredential(true);
