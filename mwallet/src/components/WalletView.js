@@ -2,17 +2,22 @@ import React, { useEffect, useState } from "react";
 import { Divider, Tooltip, List, Avatar, Spin, Tabs, Input, Button, Select, Form} from "antd";
 import { LogoutOutlined, PlusOutlined, SettingOutlined, TeamOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
-import logo from "../noImg.png";
 import { CHAINS_CONFIG } from "../chains";
 import { ethers } from "ethers";
-import DePass_abi from '..//contracts/DePass_abi.json';
+//import DePass_abi from '..//contracts/DePass_abiFinal10.json';
+import DePassPassword_abi from '..//contracts/DePass_abiPassword.json';
+import DePassPremium_abi from '..//contracts/DePass_abiPremium.json';
+import tokenzep_abi from '..//contracts/tokenzep_abi.json';
 import { v4 as uuidv4 } from 'uuid'; // Para generar IDs aleatorios
-import NFTs from './NFTs';
-import Tokens from './Tokens';
 import Transfer from './Transfer';
+import Premium from './Premium';
+import { parseUnits } from 'ethers';
 const { Option } = Select; // Usa Option para el selector
 
-const contractAddressSepolia = '0x104B17bA85F06080B039bD3BEFc1BaC0d3cC19dD';
+//const contractAddressSepolia = '0x68235F9e1d04066E3538ad39BB73c0c6CeE36C63';
+const contractAddressPremium = '0xc18BadFa641a2E4FB9111D992dBaDD9d22299791';
+const contractAddressPassword = '0x286A0e6eCcF4d875BD28fbf8C51044D68Ca0a477';
+const tokenAddress = '0xfeF943f305D451B8C680F4e8CcBddC3aD329E461';
 
 function WalletView({
   wallet,
@@ -23,17 +28,21 @@ function WalletView({
 }) {
   const navigate = useNavigate();
   const [vaults, setVaults] = useState([]);
-  const [tokens, setTokens] = useState(null);
-  const [nfts, setNfts] = useState(null);
+  const [tokens, setTokens] = useState([]);
   const [balance, setBalance] = useState(0);
   const [fetching, setFetching] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [selectedVault, setSelectedVault] = useState("all");
-  const [contract, setContract] = useState(null);
+  //const [contract, setContract] = useState(null);
+  const [contractPassword, setContractPassword] = useState(null);
+  const [contractPremium, setContractPremium] = useState(null);
+  const [tokenContract, setTokenContract] = useState(null);
   const [isAddingCredential, setIsAddingCredential] = useState(false);
   const [isAddingVault, setIsAddingVault] = useState(false);
   const [vaultSettings, setVaultSettings] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
   const [searchPrompt, setSearchPrompt] = useState("");
+  const [stakeAmountInput, setStakeAmountInput] = useState('');
   const [newCredential, setNewCredential] = useState({
     username: "",
     password: "",
@@ -44,13 +53,76 @@ function WalletView({
   });
   const [shareAddress, setShareAddress] = useState('');
 
-  // Use ABI to create an interface
-  const DePassInterface = new ethers.Interface(DePass_abi);
-
   // Mock encryption/decryption functions
   const encrypt = (data) => JSON.stringify(data);;
   const decrypt = (data) => data;
 
+  const chain = CHAINS_CONFIG[selectedChain];
+  const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
+  const privateKey = ethers.Wallet.fromPhrase(seedPhrase).privateKey;
+  const signer = new ethers.Wallet(privateKey, provider);
+
+  const buyPremium = async () => {
+    if (!tokenContract) return;
+
+    const premiumCost = parseUnits('20', 18); // 20 DPT con 18 decimales
+
+    try {
+      //const approvalTx = await tokenContract.approve(contractAddressSepolia, premiumCost);
+      const approvalTx = await tokenContract.approve(contractAddressPremium, premiumCost);
+      await approvalTx.wait();
+      console.log('Aprobación de tokens completada');
+      //const buyPremiumTx = await contract.buyPremiumAccess();
+      const buyPremiumTx = await contractPremium.buyPremiumAccess();
+      await buyPremiumTx.wait();
+      console.log('Premium comprado con éxito');
+      setIsPremium(true); // Cambiamos el estado a premium
+    } catch (error) {
+      console.error('Error al comprar premium:', error);
+    }
+  };
+
+  const checkIfPremiumUser = async () => {
+    try {
+      //const status = await contract.isPremium(wallet);
+      const status = await contractPremium.isPremium(wallet);
+      console.log("Premium status desde la blockchain:", status);
+      setIsPremium(status);  // Actualizamos el estado con el valor retornado
+    } catch (error) {
+      console.error("Error al verificar el estado premium", error);
+    }
+  };
+
+  checkIfPremiumUser ();
+  
+  const stake = async () => {
+    if (!stakeAmountInput || isNaN(stakeAmountInput) || Number(stakeAmountInput) <= 0) {
+      alert('Please enter a valid amount of DPT to stake.');
+      return;
+    }
+
+    if (!tokenContract) {
+      alert('DPT token contract not available.');
+      return;
+    }
+
+    try {
+      const amountToStake = ethers.parseUnits(stakeAmountInput, 18);
+      //const txApprove = await tokenContract.approve(contractAddressSepolia, amountToStake);
+      const txApprove = await tokenContract.approve(contractAddressPremium, amountToStake);
+      await txApprove.wait();
+      //const txStake = await contract.stakeTokens(amountToStake); // función que interactúa con el contrato para hacer stake
+      const txStake = await contractPremium.stakeTokens(amountToStake); 
+      await txStake.wait();
+      alert(`Successfully staked ${stakeAmountInput} DPT!`);
+      //fetchStakingInfo(); // Actualizar la información del stake
+    } catch (error) {
+      console.error(error);
+      alert('Error while staking DPT');
+    } finally {
+      setStakeAmountInput(''); // Limpiar el input
+    }
+  };
 
   const handleAddCredential = () => {
     setIsAddingCredential(true);
@@ -65,7 +137,7 @@ function WalletView({
     setVaultSettings(true);
   };
 
-  const handleSaveCredential = async () => {
+  /*const handleSaveCredential = async () => {
     setFetching(true);
 
     const credentialId = ethers.keccak256(ethers.toUtf8Bytes(uuidv4()));
@@ -79,10 +151,42 @@ function WalletView({
     await fetchVaults();
 
     setFetching(false);
-  };
+  }; */
 
+  const handleSaveCredential = async () => {
+    setFetching(true);
+  
+    try {
+      // Llamada para obtener la cantidad de credenciales
+      //const credentialCount = await contract.getCredentialCount(selectedVault.id);
+      const credentialCount = await contractPassword.getCredentialCount(selectedVault.id);
+  
+      // Verifica si el usuario ha llegado al límite de credenciales (10 si no es premium)
+      if (!isPremium && credentialCount >= 10) {
+        alert("Has alcanzado el límite de 10 credenciales. Actualiza a premium para agregar más.");
+        setFetching(false);
+        return;
+      }
+  
+      // Si no ha llegado al límite, procede a guardar la nueva credencial
+      const credentialId = ethers.keccak256(ethers.toUtf8Bytes(uuidv4()));
+      const encryptedData = encrypt(newCredential); // Cifra el JSON completo
+      //const tx = await contract.addCredential(selectedVault.id, credentialId, encryptedData);
+      const tx = await contractPassword.addCredential(selectedVault.id, credentialId, encryptedData);
+      await tx.wait();
+  
+      // Actualiza el estado después de agregar la credencial
+      setIsAddingCredential(false);
+      setNewCredential({ username: "", password: "", url: "" });
+      await fetchVaults();
+    } catch (error) {
+      console.error("Error al guardar la credencial:", error);
+    }
+  
+    setFetching(false);
+  };  
 
-  const handleSaveVault = async () => {
+  /*const handleSaveVault = async () => {
     setFetching(true);
 
     const vaultId = ethers.keccak256(ethers.toUtf8Bytes(uuidv4()));
@@ -96,7 +200,40 @@ function WalletView({
     await fetchVaults();
 
     setFetching(false);
-  };
+  }; */
+
+  const handleSaveVault = async () => {
+    setFetching(true);
+  
+    try {
+      // Llamar a la función getVaultCount del contrato
+      //const vaultCount = await contract.getVaultCount();
+      const vaultCount = await contractPassword.getVaultCount();
+  
+      // Verificar si el usuario no es premium y ya tiene una vault
+      if (!isPremium && vaultCount >= 1) {
+        alert("Has alcanzado el límite de 1 vault. Actualiza a premium para agregar más.");
+        setFetching(false);
+        return;
+      }
+  
+      const vaultId = ethers.keccak256(ethers.toUtf8Bytes(uuidv4()));
+      const symmetricKey = "symmetrickey"; // Clave simétrica ficticia
+      //const tx = await contract.createVault(vaultId, newVault.name, symmetricKey);
+      const tx = await contractPassword.createVault(vaultId, newVault.name, symmetricKey);
+      await tx.wait();
+  
+      setIsAddingVault(false);
+      setNewVault({ name: "" });
+      setSelectedVault("all");
+      await fetchVaults();
+    } catch (error) {
+      console.error("Error al crear la vault:", error);
+    }
+  
+    setFetching(false);
+  };  
+  
 
   const handleCancelForm = () => {
     setIsAddingVault(false);
@@ -132,7 +269,8 @@ function WalletView({
     try {
       // Aca se debe encriptar la clave simetrica con la clave publica del usuario,
       // Que entiendo es el address
-      const tx = await contract.shareVault(selectedVault.id, shareAddress, "symmetrickey");
+      //const tx = await contract.shareVault(selectedVault.id, shareAddress, "symmetrickey");
+      const tx = await contractPassword.shareVault(selectedVault.id, shareAddress, "symmetrickey");
       await tx.wait();
 
       //message.success(`Vault shared with ${shareAddress}`);
@@ -150,7 +288,8 @@ function WalletView({
     setFetching(true);
     try {
       
-      const tx = await contract.unshareVault(selectedVault.id, address);
+      //const tx = await contract.unshareVault(selectedVault.id, address);
+      const tx = await contractPassword.unshareVault(selectedVault.id, address);
       await tx.wait();
 
       fetchVaults();
@@ -166,7 +305,8 @@ function WalletView({
     setFetching(true);
     try {
       
-      const tx = await contract.deleteVault(selectedVault.id);
+      //const tx = await contract.deleteVault(selectedVault.id);
+      const tx = await contractPassword.deleteVault(selectedVault.id);
       await tx.wait();
       handleCancelForm();
       fetchVaults();
@@ -395,33 +535,50 @@ function WalletView({
       ),
     },
     {
-      key: "3",
-      label: `Tokens`,
-      children: <Tokens tokens={tokens} logo={logo} />,
-    },
-    {
-      key: "2",
-      label: `NFTs`,
-      children: <NFTs nfts={nfts} />,
-    },
-    {
       key: "1",
-      label: `Transfer`,
+      label: `Balances`,
       children: (
         <Transfer
           balance={balance}
           CHAINS_CONFIG={CHAINS_CONFIG}
           selectedChain={selectedChain}
-          seedPhrase={seedPhrase}
           processing={processing}
           setProcessing={setProcessing}
           getAccountTokens={getAccountTokens}
+          tokens={tokens}
+          tokenContract={tokenContract}
+          wallet={wallet}
+          seedPhrase={seedPhrase}
+          signer={signer}
         />
       ),
     },
+    {
+      key: "2",
+      label: "Premium",
+      children: (
+        <Premium
+        //variables a pasar
+          buyPremium={buyPremium}
+          isPremium={isPremium}
+          setIsPremium={setIsPremium}
+          wallet={wallet}
+          //contract={contract}      // cambiar??
+          contractPremium={contractPremium}
+          checkIfPremiumUser={checkIfPremiumUser}
+          //setContract={setContract} // cambiar?
+          setContractPremium={setContractPremium}
+          tokenContract={tokenContract}
+          //contractAddressSepolia={contractAddressSepolia}
+          contractAddressPremium={contractAddressPremium}
+          setTokenContract={setTokenContract}
+          stake={stake}
+          stakeAmountInput={stakeAmountInput}
+          setStakeAmountInput={setStakeAmountInput}
+        />
+      )
+    },
   ];
-
-  
 
   async function getAccountTokens() {
     setFetching(true);
@@ -436,6 +593,9 @@ function WalletView({
 
     setBalance(balanceInEth);
 
+    const tokenBalance = await tokenContract.balanceOf(wallet);
+    console.log("Token Balance:", tokenBalance.toString());
+    setTokens([{ tokenAddress, balance: tokenBalance }]);
     setFetching(false);
   }
 
@@ -450,8 +610,15 @@ function WalletView({
 
     const signer = new ethers.Wallet(privateKey, provider);
 
-    let tempContract = new ethers.Contract(contractAddressSepolia, DePass_abi, signer);
-    setContract(tempContract);
+    //let tempContract = new ethers.Contract(contractAddressSepolia, DePass_abi, signer);
+    //setContract(tempContract);
+    let tempContractPremium = new ethers.Contract(contractAddressPremium, DePassPremium_abi, signer);
+    setContractPremium(tempContractPremium);
+    let tempContractPassword = new ethers.Contract(contractAddressPassword, DePassPassword_abi, signer);
+    setContractPassword(tempContractPassword);
+
+    const tokenContract = new ethers.Contract(tokenAddress, tokenzep_abi, signer);
+    setTokenContract(tokenContract);
 
     setFetching(false);
   }
@@ -478,9 +645,11 @@ function WalletView({
   const fetchVaults = async () => {
     setFetching(true);
 
-    if (contract) {
+    //if (contract) {
+    if (contractPassword) {
       try {
-        const retrievedVaults = await contract.getVaults();
+        //const retrievedVaults = await contract.getVaults();
+        const retrievedVaults = await contractPassword.getVaults();
 
         // Procesar cada vault
         const processedVaults = retrievedVaults.length == 0 ? [] : await Promise.all(retrievedVaults.map(async (vault) => {
@@ -497,7 +666,8 @@ function WalletView({
             }; // Actualizar las credenciales del vault
         }));
 
-        const retrievedSharedVaults = await contract.getSharedVaults();
+        //const retrievedSharedVaults = await contract.getSharedVaults();
+        const retrievedSharedVaults = await contractPassword.getSharedVaults();
 
         // Procesar cada vault
         const processedSharedVaults = retrievedSharedVaults.length == 0 ? [] : await Promise.all(retrievedSharedVaults
@@ -542,7 +712,6 @@ function WalletView({
     localStorage.setItem('seedPhrase', null);
 
     setVaults(null);
-    setNfts(null);
     setTokens(null);
     setBalance(0);
     navigate("/");
@@ -552,17 +721,22 @@ function WalletView({
   useEffect(() => {
     if (!wallet) return;
     setVaults(null);
-    setNfts(null);
     setTokens(null);
     setBalance(0);
-    getAccountTokens();
     setContractsConfiguration();
   }, [wallet, selectedChain]);
 
   useEffect(() => {
-    if (!contract) return;
+    if (!tokenContract) return;
+    getAccountTokens();
+  }, [tokenContract]);
+
+  useEffect(() => {
+    //if (!contract) return;
+    if (!contractPassword) return;
     fetchVaults()
-  }, [contract]);
+  //}, [contract]);
+  }, [contractPassword]);
 
   return (
     <>
@@ -570,7 +744,7 @@ function WalletView({
         <div className="logoutButton" onClick={logout}>
           <LogoutOutlined />
         </div>
-        <div className="walletName">Wallet</div>
+        <div className="walletName" style={{ marginTop: '-8px' }}> DePass  {isPremium && <span style={{ color: 'gold' }}> Premium</span>}</div>
         <Tooltip title={wallet}>
           <div className="walletAddress">
             {wallet.slice(0, 4)}...{wallet.slice(38)}
@@ -580,11 +754,12 @@ function WalletView({
         {fetching ? (
           <Spin />
         ) : (
-          <Tabs defaultActiveKey="4" items={items} className="walletView" />
+          <Tabs defaultActiveKey="4" items={items} className="walletView" style={{ marginTop: '-30px' }} />
         )}
       </div>
     </>
   );
+
 }
 
 export default WalletView;

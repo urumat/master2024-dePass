@@ -6,7 +6,7 @@
   align-items: center;
   display: flex;
   flex-direction: column;
-  background-color: #162b46;
+  background-color: #1d1b1b;
 }
 
 .frontPageLogo {
@@ -26,7 +26,7 @@
   width: 100%;
   margin-bottom: 15px;
   gap: 5px;
-  color: white;
+  color: rgb(248, 248, 248);
 }
 
 .frontPageBottom:hover {
@@ -52,7 +52,7 @@ a:visited {
 header {
   width: 100%;
   height: 90px;
-  background-color: #0a182e;
+  background-color: #0a0a0a;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -61,7 +61,7 @@ header {
 
 .headerLogo {
   height: 50px;
-  margin-left: 20px;
+  margin-left: -120px;
 }
 
 .dropdown {
@@ -79,7 +79,7 @@ header {
   display: flex;
   flex-direction: column;
   position: relative;
-  background-color: #162b46;
+  background-color: #1d1b1b;
 }
 
 .mnemonic {

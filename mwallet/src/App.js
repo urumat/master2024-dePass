@@ -1,12 +1,14 @@
 import "./App.css";
 import { useEffect, useState } from "react";
 import logo from "./ethereumLogo.svg";
+import logodepass from "./logodepass.jpg";
 import { Select } from "antd";
 import { Routes, Route, useNavigate } from "react-router-dom";
 import Home from "./components/Home";
 import CreateAccount from "./components/CreateAccount";
 import RecoverAccount from "./components/RecoverAccount";
 import WalletView from "./components/WalletView";
+
 
 function App() {
   const navigate = useNavigate(); // Hook para redirigir
@@ -41,33 +43,10 @@ function App() {
     }
   }, [wallet, seedPhrase]);
 
-  /*
-  const [wallet, setWallet] = useState(null);
-  const [seedPhrase, setSeedPhrase] = useState(null);
-  const [selectedChain, setSelectedChain] = useState("0x1");
-
-  useEffect(() => {
-    // Cargar valores iniciales desde storage
-    browser.storage.local.get(['wallet', 'seedPhrase']).then((result) => {
-      if (result.wallet) setWallet(result.wallet);
-      if (result.seedPhrase) setSeedPhrase(result.seedPhrase);
-    });
-  }, []);
-
-  useEffect(() => {
-    // Guardar cambios en storage
-    browser.storage.local.set({ wallet });
-  }, [wallet]);
-
-  useEffect(() => {
-    browser.storage.local.set({ seedPhrase });
-  }, [seedPhrase]);
-  */
-
   return (
     <div className="App">
-      <header>
-        <img src={logo} className="headerLogo" alt="logo" />
+      <header>"
+        <img src= {logodepass} className="headerLogo" alt="logo"/>
         <Select
           onChange={(val) => setSelectedChain(val)}
           value={selectedChain}
