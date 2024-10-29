@@ -23,6 +23,7 @@ function WalletView({
 }) {
   const navigate = useNavigate();
   const [vaults, setVaults] = useState([]);
+  const [credentials, setCredentials] = useState([]);
   const [tokens, setTokens] = useState(null);
   const [nfts, setNfts] = useState(null);
   const [balance, setBalance] = useState(0);
@@ -48,8 +49,39 @@ function WalletView({
   const DePassInterface = new ethers.Interface(DePass_abi);
 
   // Mock encryption/decryption functions
-  const encrypt = (data) => JSON.stringify(data);;
+  const encrypt = (data) => JSON.stringify(data);
   const decrypt = (data) => data;
+
+  useEffect(() => {
+    if(vaults) {
+      const allCredentials = extractCredentials(vaults);
+      const sortedCredentials = sortCredentialsByUrl(allCredentials);
+      setCredentials(sortedCredentials);
+      // eslint-disable-next-line no-undef
+      chrome.storage.local.set({ credentials: sortedCredentials }, () => {
+        console.log('Credenciales guardadas en chrome.storage');
+      });
+      // eslint-disable-next-line no-undef
+      chrome.runtime.sendMessage({ type: 'NEW_CREDENTIALS' }, (response) => {
+        console.log('Respuesta del background:', response);
+      });
+    }
+  }, vaults);
+
+  useEffect(() => {
+    // Cargar las credenciales temporales de chrome.storage
+    // eslint-disable-next-line no-undef
+    chrome.storage.local.get(['tempCredentials'], (result) => {
+      if (result.tempCredentials) {
+        setNewCredential({ 
+          username: result.tempCredentials.username, 
+          password: result.tempCredentials.password, 
+          url: result.tempCredentials.url 
+        });
+        setIsAddingCredential(true);
+      }
+    });
+  }, []);
 
 
   const handleAddCredential = () => {
@@ -197,10 +229,8 @@ function WalletView({
     );
   };
 
-  const extractCredentials = (vaults, selectedVault) => 
-    selectedVault === "all" 
-      ? vaults.flatMap(vault => vault.credentials)
-      : vaults.reduce((acc, vault) => acc.concat(vault.credentials), []);
+  const extractCredentials = (vaults) => 
+    vaults.flatMap(vault => vault.credentials);
 
   const filterCredentials = (credentials, searchPrompt) => {  
     // Filtrar los vaults en base al seleccionado
@@ -214,9 +244,10 @@ function WalletView({
   
   const getAllCredentials = () => {
     const filteredVaults = filterVaults(vaults, selectedVault);
-    const allCredentials = extractCredentials(filteredVaults, selectedVault);
+    const allCredentials = extractCredentials(filteredVaults);
     const filteredCredentials = filterCredentials(allCredentials, searchPrompt);
-    return sortCredentialsByUrl(filteredCredentials);
+    const sortedCredentials = sortCredentialsByUrl(filteredCredentials);
+    return sortedCredentials;
   };
 
   const renderForms = () => {
@@ -418,9 +449,8 @@ function WalletView({
           getAccountTokens={getAccountTokens}
         />
       ),
-    },
+    }
   ];
-
   
 
   async function getAccountTokens() {
@@ -540,6 +570,12 @@ function WalletView({
     setWallet(null);
     localStorage.setItem('wallet', null);
     localStorage.setItem('seedPhrase', null);
+    // eslint-disable-next-line no-undef
+    chrome.storage.local.set({ credentials: null }, () => {});
+    // eslint-disable-next-line no-undef
+    chrome.runtime.sendMessage({ type: 'NEW_CREDENTIALS' }, (response) => {
+      console.log('Respuesta del background:', response);
+    });
 
     setVaults(null);
     setNfts(null);

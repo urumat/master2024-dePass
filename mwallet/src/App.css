@@ -176,3 +176,74 @@ header {
 label {
   color: white !important;
 }
+
+/*TEMP*/
+
+/* Estilo para el contenedor de los íconos */
+.icon-container {
+  position: relative;
+}
+
+/* Estilo para el ícono de la aplicación */
+.app-icon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  width: 30px;
+  height: 20px;
+  background-image: url('/public/images/icons/depass-stateful-container-right.svg'); /* Define la imagen como fondo */
+  background-size: contain;
+  background-repeat: no-repeat;
+  animation-duration: .25s;
+  animation-fill-mode: forwards;
+}
+
+.app-icon:hover {
+  background-image: url('/public/images/icons/depass-stateful-container-right-hover.svg');
+}
+
+/* Estilo para el ícono del chevron */
+.chevron-icon {
+  position: absolute;
+  right: 15px;
+  top: 45%;
+  transform: translateY(-50%) rotate(0deg);
+  cursor: pointer;
+  width: 10px;
+  height: 10px;
+  background-image: url('/public/images/icons/chevron.svg'); /* Define la imagen como fondo */
+  background-size: contain;
+  background-repeat: no-repeat;
+  transition: transform 0.3s ease;
+}
+
+/* Estilo para el chevron cuando está abierto */
+.chevron-icon.open {
+  transform: translateY(-50%) rotate(90deg) !important; 
+}
+
+/* Estilo para el dropdown de credenciales */
+.credential-dropdown {
+  position: absolute;
+  top: calc(100% + 5px); /* Justo debajo del input */
+  left: 0;
+  width: 100%;
+  background-color: white;
+  border: 1px solid #ccc;
+  list-style-type: none;
+  padding: 10px;
+  z-index: 9999;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Estilo para cada ítem de credencial en el dropdown */
+.credential-item {
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.credential-item:hover {
+  background-color: #f0f0f0;
+}
