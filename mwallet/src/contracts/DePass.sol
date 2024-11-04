@@ -14,6 +14,11 @@ contract DePass {
         address[] sharedWith; // List of addresses with whom the vault is shared
     }
 
+    struct VaultKey {
+        bytes32 vaultId;
+        string encryptedKey;
+    }
+
     // Mapping to store the vaults created by each user
     mapping(address => Vault[]) private userVaults;
     
@@ -163,5 +168,35 @@ contract DePass {
                 return;
             }
         }
+    }
+
+    // Función para obtener todas las claves encriptadas del usuario, tanto de sus bóvedas como de las compartidas
+    function getAllEncryptedKeys() public view returns (VaultKey[] memory) {
+        uint totalVaults = userVaults[msg.sender].length + sharedVaults[msg.sender].length;
+        VaultKey[] memory keys = new VaultKey[](totalVaults);
+
+        uint index = 0;
+
+        // Bóvedas propias del usuario
+        for (uint i = 0; i < userVaults[msg.sender].length; i++) {
+            Vault memory vault = userVaults[msg.sender][i];
+            keys[index] = VaultKey({
+                vaultId: vault.id,
+                encryptedKey: encryptedKeys[msg.sender][vault.id]
+            });
+            index++;
+        }
+
+        // Bóvedas compartidas con el usuario
+        for (uint i = 0; i < sharedVaults[msg.sender].length; i++) {
+            Vault memory sharedVault = sharedVaults[msg.sender][i];
+            keys[index] = VaultKey({
+                vaultId: sharedVault.id,
+                encryptedKey: encryptedKeys[msg.sender][sharedVault.id]
+            });
+            index++;
+        }
+
+        return keys;
     }
 }

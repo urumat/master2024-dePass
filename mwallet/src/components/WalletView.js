@@ -10,9 +10,12 @@ import { v4 as uuidv4 } from 'uuid'; // Para generar IDs aleatorios
 import NFTs from './NFTs';
 import Tokens from './Tokens';
 import Transfer from './Transfer';
+import CryptoJS from 'crypto-js';
+import { Buffer } from 'buffer';
+import eccrypto from "eccrypto";
 const { Option } = Select; // Usa Option para el selector
 
-const contractAddressSepolia = '0x104B17bA85F06080B039bD3BEFc1BaC0d3cC19dD';
+const contractAddressSepolia = '0x2e6e300c9eaef8c329dad2d364763704b7035f0f';
 
 function WalletView({
   wallet,
@@ -48,9 +51,53 @@ function WalletView({
   // Use ABI to create an interface
   const DePassInterface = new ethers.Interface(DePass_abi);
 
+  function isRunningAsExtension() {
+    // eslint-disable-next-line no-undef
+    return typeof chrome !== "undefined" && chrome.storage && chrome.storage.local;
+  }
+
+  const encrypt = (data, encryptionKey) => {
+    // Encrypt the data with the symmetric key
+    // Convierte el objeto a una cadena JSON
+    const dataString = JSON.stringify(data);
+    return CryptoJS.AES.encrypt(dataString, encryptionKey).toString();
+  };
+
+  const decrypt = (data, encryptionKey) => {
+    const bytes = CryptoJS.AES.decrypt(data, encryptionKey);
+    return bytes.toString(CryptoJS.enc.Utf8);
+  };
+
   // Mock encryption/decryption functions
-  const encrypt = (data) => JSON.stringify(data);
-  const decrypt = (data) => data;
+  async function decryptVaultKey(encryptedKey, privateKey) {
+    if(encryptedKey == '')
+      return '';
+
+    const privateKeyBuffer = Buffer.from(privateKey.slice(2), "hex");
+    // Convertir de base64 a objeto
+    const encryptedObj = JSON.parse(Buffer.from(encryptedKey, "base64").toString());
+    const encryptedData = {
+      iv: Buffer.from(encryptedObj.iv, "hex"),
+      ephemPublicKey: Buffer.from(encryptedObj.ephemPublicKey, "hex"),
+      ciphertext: Buffer.from(encryptedObj.ciphertext, "hex"),
+      mac: Buffer.from(encryptedObj.mac, "hex"),
+  };
+    // Desencriptar usando el objeto original
+    const decryptedBuffer = await eccrypto.decrypt(privateKeyBuffer, encryptedData);
+
+    return decryptedBuffer.toString(); // Devuelve el texto desencriptado
+  }
+
+  async function encryptVaultKey(vaultKey, publicKey) {
+    const publicKeyBuffer = Buffer.from(publicKey.slice(2), "hex");
+    const vaultKeyBuffer = Buffer.from(vaultKey); // Convierte el texto a Buffer
+    const encryptedObj = await eccrypto.encrypt(publicKeyBuffer, vaultKeyBuffer);
+
+    // Serializar el objeto a una sola cadena en base64
+    const encryptedString = Buffer.from(JSON.stringify(encryptedObj)).toString("base64");
+
+    return encryptedString; // Devuelve el objeto encriptado como string base64
+  }
 
   useEffect(() => {
     if(vaults) {
@@ -58,29 +105,37 @@ function WalletView({
       const sortedCredentials = sortCredentialsByUrl(allCredentials);
       setCredentials(sortedCredentials);
       // eslint-disable-next-line no-undef
-      chrome.storage.local.set({ credentials: sortedCredentials }, () => {
-        console.log('Credenciales guardadas en chrome.storage');
-      });
-      // eslint-disable-next-line no-undef
-      chrome.runtime.sendMessage({ type: 'NEW_CREDENTIALS' }, (response) => {
-        console.log('Respuesta del background:', response);
-      });
+      if (isRunningAsExtension()) {
+        // eslint-disable-next-line no-undef
+        chrome.storage.local.set({ credentials: sortedCredentials }, () => {
+          console.log('Credenciales guardadas en chrome.storage');
+        });
+        // eslint-disable-next-line no-undef
+        chrome.runtime.sendMessage({ type: 'NEW_CREDENTIALS' }, (response) => {
+          console.log('Respuesta del background:', response);
+        });
+      }
     }
   }, vaults);
 
   useEffect(() => {
     // Cargar las credenciales temporales de chrome.storage
     // eslint-disable-next-line no-undef
-    chrome.storage.local.get(['tempCredentials'], (result) => {
-      if (result.tempCredentials) {
-        setNewCredential({ 
-          username: result.tempCredentials.username, 
-          password: result.tempCredentials.password, 
-          url: result.tempCredentials.url 
-        });
-        setIsAddingCredential(true);
-      }
-    });
+    if (isRunningAsExtension()) {
+      // eslint-disable-next-line no-undef
+      chrome.storage.local.get(['tempCredentials'], (result) => {
+        if (result.tempCredentials) {
+          setNewCredential({ 
+            username: result.tempCredentials.username, 
+            password: result.tempCredentials.password, 
+            url: result.tempCredentials.url 
+          });
+          setIsAddingCredential(true);
+          // eslint-disable-next-line no-undef
+          chrome.storage.local.set({ tempCredentials: null });
+        }
+      });
+    }
   }, []);
 
 
@@ -101,7 +156,7 @@ function WalletView({
     setFetching(true);
 
     const credentialId = ethers.keccak256(ethers.toUtf8Bytes(uuidv4()));
-    const encryptedData = encrypt(newCredential); // Cifra el JSON completo
+    const encryptedData = encrypt(newCredential, selectedVault.encryptionKey); // Cifra el JSON completo
     const tx = await contract.addCredential(selectedVault.id, credentialId, encryptedData);
     await tx.wait();
     
@@ -118,8 +173,10 @@ function WalletView({
     setFetching(true);
 
     const vaultId = ethers.keccak256(ethers.toUtf8Bytes(uuidv4()));
-    const symmetricKey = "symmetrickey"; // Clave simétrica ficticia
-    const tx = await contract.createVault(vaultId, newVault.name, symmetricKey);
+    const symmetricKey = CryptoJS.lib.WordArray.random(16).toString();
+    const publicKey = ethers.Wallet.fromPhrase(seedPhrase).publicKey;
+    const encryptedKey = await encryptVaultKey(symmetricKey, publicKey)
+    const tx = await contract.createVault(vaultId, newVault.name, encryptedKey);
     await tx.wait();
     
     setIsAddingVault(false);
@@ -162,9 +219,10 @@ function WalletView({
     }
 
     try {
-      // Aca se debe encriptar la clave simetrica con la clave publica del usuario,
-      // Que entiendo es el address
-      const tx = await contract.shareVault(selectedVault.id, shareAddress, "symmetrickey");
+      // Se encripta la clave simetrica con la clave publica del usuario con el cual se comparte,
+      // Que es el address
+      const encryptedKey = await encryptVaultKey(selectedVault.encryptionKey, shareAddress)
+      const tx = await contract.shareVault(selectedVault.id, shareAddress, encryptedKey);
       await tx.wait();
 
       //message.success(`Vault shared with ${shareAddress}`);
@@ -486,12 +544,12 @@ function WalletView({
     setFetching(false);
   }
 
-  const processCredentials = async (vault) => {
+  const processCredentials = async (vault, encryptionKey) => {
     // Procesa las credenciales y maneja los errores devolviendo null en caso de fallo
     const processedCredentials = await Promise.all(
         vault.credentials.map(async (cred) => {
             try {
-                const decryptedData = decrypt(cred.encryptedData); // Llama a tu función de desencriptado
+                const decryptedData = decrypt(cred.encryptedData, encryptionKey); // Llama a tu función de desencriptado
                 const credential = JSON.parse(decryptedData); // Intenta convertir el string JSON a objeto
                 return { id: cred.id, ...credential }; // Devuelve la combinación de credencial original y desencriptada
             } catch (error) {
@@ -510,20 +568,25 @@ function WalletView({
 
     if (contract) {
       try {
+        const privateKey = ethers.Wallet.fromPhrase(seedPhrase).privateKey;
+        const vaultEncryptedKeys = await contract.getAllEncryptedKeys();
+
         const retrievedVaults = await contract.getVaults();
 
         // Procesar cada vault
         const processedVaults = retrievedVaults.length == 0 ? [] : await Promise.all(retrievedVaults.map(async (vault) => {
+            const encryptedKey = vaultEncryptedKeys.find(k => k.vaultId == vault.id).encryptedKey;
+            const encryptionKey = await decryptVaultKey(encryptedKey, privateKey);
             // Desencriptar y procesar cada credencial
-            const processedCredentials = await processCredentials(vault);
-
-            return { 
+            const processedCredentials = await processCredentials(vault, encryptionKey);
+            return {
               id: vault.id, 
               name: vault.name, 
               sharedWith: Array.from(vault.sharedWith),
               credentials: processedCredentials,
               shared: vault.sharedWith.length > 0 ? true : false,
-              sharedWithMe: false
+              sharedWithMe: false,
+              encryptionKey: encryptionKey
             }; // Actualizar las credenciales del vault
         }));
 
@@ -532,16 +595,18 @@ function WalletView({
         // Procesar cada vault
         const processedSharedVaults = retrievedSharedVaults.length == 0 ? [] : await Promise.all(retrievedSharedVaults
           .map(async (vault) => {
+            const encryptedKey = vaultEncryptedKeys.find(k => k.vaultId == vault.id).encryptedKey;
+            const encryptionKey = await decryptVaultKey(encryptedKey, privateKey);
             // Desencriptar y procesar cada credencial
-            const processedCredentials = await processCredentials(vault);
-
+            const processedCredentials = await processCredentials(vault, encryptionKey);
             return { 
               id: vault.id, 
               name: vault.name, 
               sharedWith: Array.from(vault.sharedWith),
               credentials: processedCredentials,
               shared: true,
-              sharedWithMe: true
+              sharedWithMe: true,
+              encryptionKey: encryptionKey
             }; // Actualizar las credenciales del vault
         }));
 
@@ -570,13 +635,14 @@ function WalletView({
     setWallet(null);
     localStorage.setItem('wallet', null);
     localStorage.setItem('seedPhrase', null);
-    // eslint-disable-next-line no-undef
-    chrome.storage.local.set({ credentials: null }, () => {});
-    // eslint-disable-next-line no-undef
-    chrome.runtime.sendMessage({ type: 'NEW_CREDENTIALS' }, (response) => {
-      console.log('Respuesta del background:', response);
-    });
-
+    if (isRunningAsExtension()) {
+      // eslint-disable-next-line no-undef
+      chrome.storage.local.set({ credentials: null }, () => {});
+      // eslint-disable-next-line no-undef
+      chrome.runtime.sendMessage({ type: 'NEW_CREDENTIALS' }, (response) => {
+        console.log('Respuesta del background:', response);
+      });
+    }
     setVaults(null);
     setNfts(null);
     setTokens(null);
