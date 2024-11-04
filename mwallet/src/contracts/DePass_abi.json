@@ -328,6 +328,11 @@
 						"internalType": "address[]",
 						"name": "sharedWith",
 						"type": "address[]"
+					},
+					{
+						"internalType": "address",
+						"name": "owner",
+						"type": "address"
 					}
 				],
 				"internalType": "struct DePass.Vault[]",
@@ -375,6 +380,11 @@
 						"internalType": "address[]",
 						"name": "sharedWith",
 						"type": "address[]"
+					},
+					{
+						"internalType": "address",
+						"name": "owner",
+						"type": "address"
 					}
 				],
 				"internalType": "struct DePass.Vault[]",

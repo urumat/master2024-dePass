@@ -12,6 +12,12 @@ contract DePass {
         string name;
         Credential[] credentials;
         address[] sharedWith; // List of addresses with whom the vault is shared
+        address owner;
+    }
+
+    struct SharedVaultInfo {
+        bytes32 vaultId;
+        address owner;
     }
 
     struct VaultKey {
@@ -22,8 +28,8 @@ contract DePass {
     // Mapping to store the vaults created by each user
     mapping(address => Vault[]) private userVaults;
     
-    // Mapping to track which vaults have been shared with a user
-    mapping(address => Vault[]) private sharedVaults;
+    // Mapping to track which vaults have been shared with a user, including owner info
+    mapping(address => SharedVaultInfo[]) private sharedVaultIds;
 
     // Mapping to store encrypted symmetric keys associated with each vault and user
     mapping(address => mapping(bytes32 => string)) private encryptedKeys;
@@ -41,6 +47,7 @@ contract DePass {
         Vault storage newVault = userVaults[msg.sender].push();
         newVault.id = _vaultId;
         newVault.name = _vaultName;
+        newVault.owner = msg.sender;
 
         encryptedKeys[msg.sender][_vaultId] = _encryptedSymmetricKey;
 
@@ -85,57 +92,63 @@ contract DePass {
         // Add the user to the shared list
         vault.sharedWith.push(_userToShareWith);
 
-        // Add the vault to the shared vaults mapping
-        sharedVaults[_userToShareWith].push(vault);
+        // Add the vault ID and owner to the shared vaults for the user
+        sharedVaultIds[_userToShareWith].push(SharedVaultInfo({
+            vaultId: _vaultId,
+            owner: msg.sender
+        }));
 
         emit VaultShared(msg.sender, _userToShareWith, _vaultId);
     }
 
+    // Function to unshare a vault with a specific user
     function unshareVault(bytes32 _vaultId, address _userToUnshareWith) public {
         Vault storage vault = _getVaultById(msg.sender, _vaultId);
         require(vault.id != bytes32(0), "Vault not found");
 
-        // Remove the encrypted symmetric key for the user
-        delete encryptedKeys[_userToUnshareWith][_vaultId];
-
-        // Remove the user from the list of shared addresses
-        for (uint256 j = 0; j < vault.sharedWith.length; j++) {
-            if (vault.sharedWith[j] == _userToUnshareWith) {
-                vault.sharedWith[j] = vault.sharedWith[vault.sharedWith.length - 1];
+        // Remove the user from the sharedWith array
+        for (uint i = 0; i < vault.sharedWith.length; i++) {
+            if (vault.sharedWith[i] == _userToUnshareWith) {
+                vault.sharedWith[i] = vault.sharedWith[vault.sharedWith.length - 1];
                 vault.sharedWith.pop();
                 break;
             }
         }
 
-        // Remove the vault from the sharedVaults mapping
+        // Remove the vault ID from the user's shared vaults
         _removeSharedVault(_userToUnshareWith, _vaultId);
+
+        // Delete the encrypted key for the unshared user
+        delete encryptedKeys[_userToUnshareWith][_vaultId];
 
         emit VaultUnshared(msg.sender, _userToUnshareWith, _vaultId);
     }
 
+    // Function to delete a vault owned by the user
     function deleteVault(bytes32 _vaultId) public {
         Vault[] storage vaults = userVaults[msg.sender];
-        bool vaultFound = false;
-
-        for (uint256 i = 0; i < vaults.length; i++) {
+        uint indexToDelete = type(uint).max;
+        
+        for (uint i = 0; i < vaults.length; i++) {
             if (vaults[i].id == _vaultId) {
-                Vault storage vaultToDelete = vaults[i];
-                vaultFound = true;
-
-                // Eliminar la bóveda de los sharedVaults de los usuarios con los que se compartió
-                address[] memory sharedUsers = vaultToDelete.sharedWith;
-                for (uint256 j = 0; j < sharedUsers.length; j++) {
-                    _removeSharedVault(sharedUsers[j], _vaultId);
-                }
-
-                // Eliminar la bóveda del array del usuario actual
-                vaults[i] = vaults[vaults.length - 1];
-                vaults.pop();
+                indexToDelete = i;
                 break;
             }
         }
+        require(indexToDelete != type(uint).max, "Vault not found");
 
-        require(vaultFound, "Vault not found or deletion failed");
+        Vault storage vault = vaults[indexToDelete];
+
+        // Unshare the vault from all shared users
+        for (uint i = 0; i < vault.sharedWith.length; i++) {
+            address sharedUser = vault.sharedWith[i];
+            _removeSharedVault(sharedUser, _vaultId);
+            delete encryptedKeys[sharedUser][_vaultId];
+        }
+
+        // Remove the vault from the user's vault list
+        vaults[indexToDelete] = vaults[vaults.length - 1];
+        vaults.pop();
 
         emit VaultDeleted(msg.sender, _vaultId);
     }
@@ -145,8 +158,18 @@ contract DePass {
         return userVaults[msg.sender];
     }
 
+    // Function to retrieve vaults shared with the user
     function getSharedVaults() public view returns (Vault[] memory) {
-        return sharedVaults[msg.sender];
+        uint sharedVaultCount = sharedVaultIds[msg.sender].length;
+        Vault[] memory sharedVaults = new Vault[](sharedVaultCount);
+
+        for (uint i = 0; i < sharedVaultCount; i++) {
+            SharedVaultInfo storage sharedVaultInfo = sharedVaultIds[msg.sender][i];
+            Vault storage vault = _getVaultById(sharedVaultInfo.owner, sharedVaultInfo.vaultId);
+            sharedVaults[i] = vault;
+        }
+
+        return sharedVaults;
     }
 
     function _getVaultById(address _user, bytes32 _vaultId) internal view returns (Vault storage) {
@@ -159,20 +182,21 @@ contract DePass {
         revert("Vault not found");
     }
 
-    function _removeSharedVault(address _user, bytes32 _vaultId) internal {
-        Vault[] storage vaults = sharedVaults[_user];
-        for (uint256 i = 0; i < vaults.length; i++) {
-            if (vaults[i].id == _vaultId) {
-                vaults[i] = vaults[vaults.length - 1];
-                vaults.pop();
-                return;
+    // Helper function to remove a shared vault from a user's shared vaults
+    function _removeSharedVault(address user, bytes32 _vaultId) private {
+        uint sharedVaultCount = sharedVaultIds[user].length;
+        for (uint i = 0; i < sharedVaultCount; i++) {
+            if (sharedVaultIds[user][i].vaultId == _vaultId) {
+                sharedVaultIds[user][i] = sharedVaultIds[user][sharedVaultCount - 1];
+                sharedVaultIds[user].pop();
+                break;
             }
         }
     }
 
     // Función para obtener todas las claves encriptadas del usuario, tanto de sus bóvedas como de las compartidas
     function getAllEncryptedKeys() public view returns (VaultKey[] memory) {
-        uint totalVaults = userVaults[msg.sender].length + sharedVaults[msg.sender].length;
+        uint totalVaults = userVaults[msg.sender].length + sharedVaultIds[msg.sender].length;
         VaultKey[] memory keys = new VaultKey[](totalVaults);
 
         uint index = 0;
@@ -188,11 +212,11 @@ contract DePass {
         }
 
         // Bóvedas compartidas con el usuario
-        for (uint i = 0; i < sharedVaults[msg.sender].length; i++) {
-            Vault memory sharedVault = sharedVaults[msg.sender][i];
+        for (uint i = 0; i < sharedVaultIds[msg.sender].length; i++) {
+            SharedVaultInfo storage sharedVaultInfo = sharedVaultIds[msg.sender][i];
             keys[index] = VaultKey({
-                vaultId: sharedVault.id,
-                encryptedKey: encryptedKeys[msg.sender][sharedVault.id]
+                vaultId: sharedVaultInfo.vaultId,
+                encryptedKey: encryptedKeys[msg.sender][sharedVaultInfo.vaultId]
             });
             index++;
         }

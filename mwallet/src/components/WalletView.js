@@ -15,7 +15,7 @@ import { Buffer } from 'buffer';
 import eccrypto from "eccrypto";
 const { Option } = Select; // Usa Option para el selector
 
-const contractAddressSepolia = '0x2e6e300c9eaef8c329dad2d364763704b7035f0f';
+const contractAddressSepolia = '0x87cDD6bc65a8756E5Db8d7877E88600C98e15E05';
 
 function WalletView({
   wallet,
@@ -47,6 +47,7 @@ function WalletView({
     name: "",
   });
   const [shareAddress, setShareAddress] = useState('');
+  const [sharePublicKey, setSharePublicKey] = useState('');
 
   // Use ABI to create an interface
   const DePassInterface = new ethers.Interface(DePass_abi);
@@ -213,20 +214,20 @@ function WalletView({
   // Handler to share the vault with an address
   const handleShareVault = async () => {
     setFetching(true);
-    if (!shareAddress) {
+    if (!shareAddress || !sharePublicKey) {
       //message.error('Please enter an address to share the vault.');
       return;
     }
 
     try {
-      // Se encripta la clave simetrica con la clave publica del usuario con el cual se comparte,
-      // Que es el address
-      const encryptedKey = await encryptVaultKey(selectedVault.encryptionKey, shareAddress)
+      // Se encripta la clave simetrica con la clave publica del usuario con el cual se comparte
+      const encryptedKey = await encryptVaultKey(selectedVault.encryptionKey, sharePublicKey)
       const tx = await contract.shareVault(selectedVault.id, shareAddress, encryptedKey);
       await tx.wait();
 
       //message.success(`Vault shared with ${shareAddress}`);
       setShareAddress(''); // Clear input after sharing
+      setSharePublicKey('');
 
       fetchVaults();
     } catch (error) {
@@ -371,7 +372,12 @@ function WalletView({
             />
           </Form.Item>
 
-          <Form.Item label="Share with Address">
+          <Form.Item label="Share with:">
+            <Input
+              value={sharePublicKey}
+              onChange={(e) => setSharePublicKey(e.target.value)}
+              placeholder="Enter public key to share vault"
+            />
             <Input
               value={shareAddress}
               onChange={(e) => setShareAddress(e.target.value)}
