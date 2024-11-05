@@ -19,7 +19,7 @@ const { Option } = Select; // Usa Option para el selector
 const contractAddress_sepolia = '0x87cDD6bc65a8756E5Db8d7877E88600C98e15E05';
 
 const contractAddressPremium = '0xc18BadFa641a2E4FB9111D992dBaDD9d22299791';
-const contractAddressPassword = '0x286A0e6eCcF4d875BD28fbf8C51044D68Ca0a477';
+const contractAddressPassword = '0x39f1E599Cf3b4613569c96B257814b5DDC99C056';
 const tokenContractAddress = '0xfeF943f305D451B8C680F4e8CcBddC3aD329E461';
 
 function WalletView({
