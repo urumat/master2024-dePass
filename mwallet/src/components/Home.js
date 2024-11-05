@@ -8,7 +8,7 @@ function Home() {
   return (
     <>
       <div className="content">
-        <h2> Best Crypto Wallet</h2>
+        <h2> DePass</h2>
         <h4 className="h4">Secure, Self Custodial, Decentralized</h4>
         <Button
           onClick={() => navigate("/createaccount")}
