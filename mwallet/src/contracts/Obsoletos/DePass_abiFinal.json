@@ -23,6 +23,13 @@
 		"type": "function"
 	},
 	{
+		"inputs": [],
+		"name": "buyPremiumAccess",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
 		"inputs": [
 			{
 				"internalType": "bytes32",
@@ -44,67 +51,6 @@
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_premiumStakingContract",
-				"type": "address"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "constructor"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "bytes32",
-				"name": "vaultId",
-				"type": "bytes32"
-			},
-			{
-				"indexed": false,
-				"internalType": "bytes32",
-				"name": "credentialId",
-				"type": "bytes32"
-			}
-		],
-		"name": "CredentialAdded",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "user",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "bytes32",
-				"name": "vaultId",
-				"type": "bytes32"
-			},
-			{
-				"indexed": false,
-				"internalType": "bytes32",
-				"name": "credentialId",
-				"type": "bytes32"
-			}
-		],
-		"name": "CredentialModified",
-		"type": "event"
 	},
 	{
 		"inputs": [
@@ -164,6 +110,80 @@
 		"outputs": [],
 		"stateMutability": "nonpayable",
 		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "contract IERC20",
+				"name": "_dptToken",
+				"type": "address"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "constructor"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "bytes32",
+				"name": "vaultId",
+				"type": "bytes32"
+			},
+			{
+				"indexed": false,
+				"internalType": "bytes32",
+				"name": "credentialId",
+				"type": "bytes32"
+			}
+		],
+		"name": "CredentialAdded",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "bytes32",
+				"name": "vaultId",
+				"type": "bytes32"
+			},
+			{
+				"indexed": false,
+				"internalType": "bytes32",
+				"name": "credentialId",
+				"type": "bytes32"
+			}
+		],
+		"name": "CredentialModified",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			}
+		],
+		"name": "PremiumAccessPurchased",
+		"type": "event"
 	},
 	{
 		"inputs": [
@@ -278,6 +298,45 @@
 		"type": "event"
 	},
 	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "owner",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			}
+		],
+		"name": "Withdrawal",
+		"type": "event"
+	},
+	{
+		"inputs": [],
+		"name": "withdrawTokens",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "dptToken",
+		"outputs": [
+			{
+				"internalType": "contract IERC20",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
 		"inputs": [
 			{
 				"internalType": "bytes32",
@@ -325,7 +384,7 @@
 								"type": "string"
 							}
 						],
-						"internalType": "struct DePassPasswordManager.Credential[]",
+						"internalType": "struct DePass.Credential[]",
 						"name": "credentials",
 						"type": "tuple[]"
 					},
@@ -335,7 +394,7 @@
 						"type": "address[]"
 					}
 				],
-				"internalType": "struct DePassPasswordManager.Vault[]",
+				"internalType": "struct DePass.Vault[]",
 				"name": "",
 				"type": "tuple[]"
 			}
@@ -385,7 +444,7 @@
 								"type": "string"
 							}
 						],
-						"internalType": "struct DePassPasswordManager.Credential[]",
+						"internalType": "struct DePass.Credential[]",
 						"name": "credentials",
 						"type": "tuple[]"
 					},
@@ -395,7 +454,7 @@
 						"type": "address[]"
 					}
 				],
-				"internalType": "struct DePassPasswordManager.Vault[]",
+				"internalType": "struct DePass.Vault[]",
 				"name": "",
 				"type": "tuple[]"
 			}
@@ -405,12 +464,44 @@
 	},
 	{
 		"inputs": [],
-		"name": "premiumStakingContract",
+		"name": "owner",
 		"outputs": [
 			{
-				"internalType": "contract IDePassPremiumStaking",
+				"internalType": "address",
 				"name": "",
 				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "premiumPrice",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"name": "premiumUsers",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
 			}
 		],
 		"stateMutability": "view",
