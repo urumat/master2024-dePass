@@ -4,7 +4,7 @@ import { LogoutOutlined, PlusOutlined, SettingOutlined, TeamOutlined } from "@an
 import { useNavigate } from "react-router-dom";
 import { CHAINS_CONFIG } from "../chains";
 import { ethers } from "ethers";
-import DePass_abi from '..//contracts/DePass_abi.json';
+import DePass_abi from '..//contracts/DePassPassword_abi.json';
 import DePassPremium_abi from '..//contracts/DePassPremium_abi.json';
 import tokenzep_abi from '..//contracts/tokenzep_abi.json';
 import { v4 as uuidv4 } from 'uuid'; // Para generar IDs aleatorios
