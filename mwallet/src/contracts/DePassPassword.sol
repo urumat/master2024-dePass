@@ -102,8 +102,17 @@ contract DePassPasswordManager {
         require(_credentialId != bytes32(0), "Credential ID cannot be empty");
 
         Vault storage userVault = _getVaultById(msg.sender, _vaultId);
+        if (userVault.id == bytes32(0)){
+            for (uint i = 0; i < sharedVaultIds[msg.sender].length; i++) {
+                SharedVaultInfo storage sharedVaultInfo = sharedVaultIds[msg.sender][i];
+                if (sharedVaultInfo.vaultId == _vaultId) {
+                    userVault = _getVaultById(sharedVaultInfo.owner, _vaultId);
+                    break;
+                }
+            }
+        }
         require(userVault.id != bytes32(0), "Vault not found");
-
+        
         userVault.credentials.push(
             Credential({id: _credentialId, encryptedData: _encryptedData})
         );
