@@ -16,7 +16,7 @@ contract DePassPasswordManager {
 
     struct Credential {
         bytes32 id; // Unique ID for the credential
-        string encryptedData; // Stores credentials as encrypted JSON
+        //string encryptedData; // Stores credentials as encrypted JSON
     }
 
     struct Vault {
@@ -46,8 +46,13 @@ contract DePassPasswordManager {
     // Mapping to store encrypted symmetric keys associated with each vault and user
     mapping(address => mapping(bytes32 => string)) private encryptedKeys;
 
-    event CredentialAdded(address indexed user, bytes32 vaultId, bytes32 credentialId);
-    event CredentialModified(address indexed user, bytes32 vaultId, bytes32 credentialId);
+    event CredentialAdded(
+        address indexed user, 
+        bytes32 indexed vaultId, 
+        bytes32 indexed credentialId, 
+        string encryptedData
+    );
+
     event VaultShared(address indexed owner, address indexed sharedWith, bytes32 vaultId);
     event VaultUnshared(address indexed owner, address indexed unsharedWith, bytes32 vaultId);
     event VaultCreated(address indexed user, bytes32 vaultId, string vaultName);
@@ -102,22 +107,13 @@ contract DePassPasswordManager {
         require(_credentialId != bytes32(0), "Credential ID cannot be empty");
 
         Vault storage userVault = _getVaultById(msg.sender, _vaultId);
-        if (userVault.id == bytes32(0)){
-            for (uint i = 0; i < sharedVaultIds[msg.sender].length; i++) {
-                SharedVaultInfo storage sharedVaultInfo = sharedVaultIds[msg.sender][i];
-                if (sharedVaultInfo.vaultId == _vaultId) {
-                    userVault = _getVaultById(sharedVaultInfo.owner, _vaultId);
-                    break;
-                }
-            }
-        }
         require(userVault.id != bytes32(0), "Vault not found");
         
         userVault.credentials.push(
-            Credential({id: _credentialId, encryptedData: _encryptedData})
+            Credential({id: _credentialId})
         );
 
-        emit CredentialAdded(msg.sender, _vaultId, _credentialId);
+        emit CredentialAdded(msg.sender, _vaultId, _credentialId, _encryptedData);
     }
 
     function modifyCredential(
@@ -131,14 +127,14 @@ contract DePassPasswordManager {
         bool credentialFound = false;
         for (uint256 i = 0; i < userVault.credentials.length; i++) {
             if (userVault.credentials[i].id == _credentialId) {
-                userVault.credentials[i].encryptedData = _newEncryptedData;
+                //userVault.credentials[i].encryptedData = _newEncryptedData;
                 credentialFound = true;
                 break;
             }
         }
 
         require(credentialFound, "Credential not found");
-        emit CredentialModified(msg.sender, _vaultId, _credentialId);
+        emit CredentialAdded(msg.sender, _vaultId, _credentialId, _newEncryptedData);
     }
 
     function shareVault(
@@ -164,10 +160,24 @@ contract DePassPasswordManager {
         emit VaultShared(msg.sender, _userToShareWith, _vaultId);
     }
 
+    // Función auxiliar para verificar si una dirección está en una lista de direcciones
+    function isAddressInList(address[] memory list, address target) internal pure returns (bool) {
+        for (uint i = 0; i < list.length; i++) {
+            if (list[i] == target) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Function to unshare a vault with a specific user
     function unshareVault(bytes32 _vaultId, address _userToUnshareWith) public {
         Vault storage vault = _getVaultById(msg.sender, _vaultId);
         require(vault.id != bytes32(0), "Vault not found");
+        // User must be the owner or the user to whom the vault was shared with
+        require(vault.owner == msg.sender || _userToUnshareWith == msg.sender, "Permission denied");
+        // Vault must be shared with this user
+        require(isAddressInList(vault.sharedWith, _userToUnshareWith), "User not shared with this vault");
 
         // Remove the user from the sharedWith array
         for (uint i = 0; i < vault.sharedWith.length; i++) {
@@ -234,6 +244,7 @@ contract DePassPasswordManager {
         return sharedVaults;
     }
 
+    // Vault could belong to user or be shared with user
     function _getVaultById(address _user, bytes32 _vaultId)
         internal
         view
@@ -245,6 +256,16 @@ contract DePassPasswordManager {
                 return vaults[i];
             }
         }
+
+        SharedVaultInfo[] storage sharedVaultsInfo = sharedVaultIds[_user];
+        for (uint i = 0; i < sharedVaultsInfo.length; i++) {
+            if (sharedVaultsInfo[i].vaultId == _vaultId) {
+                // Warning: Recursive call
+                // If there is a sharedVaultInfo with that owner he must have the vault
+                return _getVaultById(sharedVaultsInfo[i].owner, _vaultId);
+            }
+        }
+
         revert("Vault not found");
     }
 

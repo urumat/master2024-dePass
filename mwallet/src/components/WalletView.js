@@ -19,7 +19,7 @@ const { Option } = Select; // Usa Option para el selector
 const contractAddress_sepolia = '0x87cDD6bc65a8756E5Db8d7877E88600C98e15E05';
 
 const contractAddressPremium = '0xc18BadFa641a2E4FB9111D992dBaDD9d22299791';
-const contractAddressPassword = '0x39f1E599Cf3b4613569c96B257814b5DDC99C056';
+const contractAddressPassword = '0x7C197565D34fFAD342fd528a7284392041Ec7a45';
 const tokenContractAddress = '0xfeF943f305D451B8C680F4e8CcBddC3aD329E461';
 
 function WalletView({
@@ -232,7 +232,6 @@ function WalletView({
     setFetching(true);
 
     // Llamada para obtener la cantidad de credenciales
-    //const credentialCount = await contract.getCredentialCount(selectedVault.id);
     const credentialCount = await contract.getCredentialCount(selectedVault.id);
 
     // Verifica si el usuario ha llegado al límite de credenciales (10 si no es premium)
@@ -673,20 +672,56 @@ function WalletView({
     setFetching(false);
   }
 
+  const fetchLatestVaultCredentials = async (vaultId, credentialIds) => {
+    const filter = contract.filters.CredentialAdded(null, vaultId);
+    const events = await contract.queryFilter(filter);
+  
+    // Filtrar eventos para quedarse solo con los de `credentialIds` del vault
+    const filteredEvents = events.filter(event => 
+      credentialIds.includes(event.args.credentialId)
+    );
+  
+    // Crear un objeto para almacenar el evento más reciente por `credentialId`
+    const latestEvents = {};
+  
+    filteredEvents.forEach(event => {
+      const credentialId = event.args.credentialId;
+      const blockNumber = event.blockNumber;
+  
+      // Si es el primer evento con este `credentialId` o si es más reciente, reemplazar
+      if (!latestEvents[credentialId] || blockNumber > latestEvents[credentialId].blockNumber) {
+        latestEvents[credentialId] = {
+          credentialId,
+          encryptedData: event.args.encryptedData
+        };
+      }
+    });
+  
+    // Convertir los resultados en un array de los eventos más recientes
+    return Object.values(latestEvents);
+  };
+
   const processCredentials = async (vault, encryptionKey) => {
+    // Obtiene los IDs de credenciales del vault
+    const credentialIds = vault.credentials.map((cred) => cred.id);
+
+    // Obtiene los datos encriptados más recientes desde los logs usando el vaultId y credentialIds
+    const latestCredentials = await fetchLatestVaultCredentials(vault.id, credentialIds);
+
     // Procesa las credenciales y maneja los errores devolviendo null en caso de fallo
     const processedCredentials = await Promise.all(
-        vault.credentials.map(async (cred) => {
-            try {
-                const decryptedData = decrypt(cred.encryptedData, encryptionKey); // Llama a tu función de desencriptado
-                const credential = JSON.parse(decryptedData); // Intenta convertir el string JSON a objeto
-                return { id: cred.id, ...credential }; // Devuelve la combinación de credencial original y desencriptada
-            } catch (error) {
-                //console.error("Error decrypting or parsing JSON:", error);
-                return null; // Devuelve null en caso de error
-            }
-        })
+      latestCredentials.map(async (cred) => {
+          try {
+              const decryptedData = decrypt(cred.encryptedData, encryptionKey); // Llama a tu función de desencriptado
+              const credential = JSON.parse(decryptedData); // Intenta convertir el string JSON a objeto
+              return { id: cred.credentialId, ...credential }; // Devuelve la combinación de credencial original y desencriptada
+          } catch (error) {
+              console.error("Error decrypting or parsing JSON:", error);
+              return null; // Devuelve null en caso de error
+          }
+      })
     );
+
 
     // Filtra los nulls y devuelve solo las credenciales válidas
     return processedCredentials.filter((cred) => cred != null && cred.id != null);
