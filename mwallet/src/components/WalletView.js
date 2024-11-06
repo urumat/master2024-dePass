@@ -19,7 +19,7 @@ const { Option } = Select; // Usa Option para el selector
 const contractAddress_sepolia = '0x87cDD6bc65a8756E5Db8d7877E88600C98e15E05';
 
 const contractAddressPremium = '0xc18BadFa641a2E4FB9111D992dBaDD9d22299791';
-const contractAddressPassword = '0x7C197565D34fFAD342fd528a7284392041Ec7a45';
+const contractAddressPassword = '0xAaAb5E7c21609115d63319f2c12bFFbB6e4e1818';
 const tokenContractAddress = '0xfeF943f305D451B8C680F4e8CcBddC3aD329E461';
 
 function WalletView({
@@ -231,6 +231,12 @@ function WalletView({
   const handleSaveCredential = async () => {
     setFetching(true);
 
+    if(selectedVault == null || selectedVault == 'all') {
+      alert("Debes seleccionar una bóveda");
+      setFetching(false);
+      return;
+    }
+
     // Llamada para obtener la cantidad de credenciales
     const credentialCount = await contract.getCredentialCount(selectedVault.id);
 
@@ -404,13 +410,18 @@ function WalletView({
     return sortedCredentials;
   };
 
+  const selectFirstVault = () => {
+    setSelectedVault(vaults[0]);
+    return vaults[0].id;
+  }
+
   const renderForms = () => {
     if (isAddingCredential) {
       return (
         <Form layout="vertical" autoComplete="off">
           <Select
             defaultValue={(selectedVault == "all" 
-              ? (vaults && vaults.length > 0 ? vaults[0].id : "null")
+              ? (vaults && vaults.length > 0 ? selectFirstVault() : "null")
               : selectedVault.id)}
             style={{ width: "100%" }}
             onChange={handleSelectVault}
