@@ -684,33 +684,68 @@ function WalletView({
   }
 
   const fetchLatestVaultCredentials = async (vaultId, credentialIds) => {
-    const filter = contract.filters.CredentialAdded(null, vaultId);
-    const events = await contract.queryFilter(filter);
+    let events = [];
   
-    // Filtrar eventos para quedarse solo con los de `credentialIds` del vault
-    const filteredEvents = events.filter(event => 
-      credentialIds.includes(event.args.credentialId)
-    );
+    // Intentar obtener los eventos desde el servidor
+    try {
+      const response = await fetch(`http://localhost:3001/getEventsByType/CredentialAdded?vaultId=${vaultId}`);
+      if (response.ok) {
+        const serverEvents = await response.json();
   
-    // Crear un objeto para almacenar el evento más reciente por `credentialId`
-    const latestEvents = {};
-  
-    filteredEvents.forEach(event => {
-      const credentialId = event.args.credentialId;
-      const blockNumber = event.blockNumber;
-  
-      // Si es el primer evento con este `credentialId` o si es más reciente, reemplazar
-      if (!latestEvents[credentialId] || blockNumber > latestEvents[credentialId].blockNumber) {
-        latestEvents[credentialId] = {
-          credentialId,
-          encryptedData: event.args.encryptedData
-        };
+        // Filtrar los eventos que coincidan con los `credentialIds` proporcionados
+        events = serverEvents.filter(event =>
+          credentialIds.includes(event.credentialId)
+        );
+      } else {
+        console.warn("Servidor respondió, pero hubo un problema:", response.statusText);
       }
-    });
+    } catch (error) {
+      console.error("Servidor no disponible, se consultará la blockchain directamente.", error);
+    }
   
-    // Convertir los resultados en un array de los eventos más recientes
-    return Object.values(latestEvents);
+    // Si el servidor no devolvió todos los datos, consultar la blockchain
+    if (events.length < credentialIds.length) {
+      console.warn("Datos incompletos del servidor, obteniendo datos faltantes de la blockchain.");
+  
+      const filter = contract.filters.CredentialAdded(null, vaultId);
+      const blockchainEvents = await contract.queryFilter(filter);
+  
+      // Filtrar eventos para quedarse solo con los de `credentialIds` específicos del vault
+      const filteredBlockchainEvents = blockchainEvents.filter(event =>
+        credentialIds.includes(event.args.credentialId)
+      );
+  
+      // Crear un objeto para almacenar el evento más reciente por `credentialId`
+      const latestBlockchainEvents = {};
+  
+      filteredBlockchainEvents.forEach(event => {
+        const credentialId = event.args.credentialId;
+        const blockNumber = event.blockNumber;
+  
+        // Si es el primer evento con este `credentialId` o si es más reciente, reemplazar
+        if (!latestBlockchainEvents[credentialId] || blockNumber > latestBlockchainEvents[credentialId].blockNumber) {
+          latestBlockchainEvents[credentialId] = {
+            credentialId,
+            encryptedData: event.args.encryptedData
+          };
+        }
+      });
+  
+      // Agregar los eventos de la blockchain a la lista `events`
+      events = Object.values(latestBlockchainEvents);
+    }
+  
+    // Verificar que se hayan obtenido datos para todos los `credentialIds`
+    const missingIds = credentialIds.filter(id => !events.some(event => event.credentialId === id));
+    if (missingIds.length > 0) {
+      console.warn("Datos faltantes para los siguientes credentialIds:", missingIds);
+      // TODO: Show warning in app
+    }
+  
+    // Si todos los IDs están presentes, devolver los eventos más recientes
+    return events;
   };
+  
 
   const processCredentials = async (vault, encryptionKey) => {
     // Obtiene los IDs de credenciales del vault

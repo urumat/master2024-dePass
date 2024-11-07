@@ -1,0 +1,26 @@
+{
+  "name": "blockchain-event-listener",
+  "version": "1.0.0",
+  "description": "Server to listen to blockchain events and store them in MongoDB with Express.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^10.0.0",
+    "ethers": "^5.7.0",
+    "express": "^4.17.1",
+    "mongodb": "^4.3.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "keywords": [
+    "blockchain",
+    "express",
+    "mongodb",
+    "ethers",
+    "event-listener"
+  ]
+}
