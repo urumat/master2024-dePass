@@ -18,9 +18,15 @@ const { Option } = Select; // Usa Option para el selector
 
 const contractAddress_sepolia = '0x87cDD6bc65a8756E5Db8d7877E88600C98e15E05';
 
-const contractAddressPremium = '0xc18BadFa641a2E4FB9111D992dBaDD9d22299791';
-const contractAddressPassword = '0xAaAb5E7c21609115d63319f2c12bFFbB6e4e1818';
-const tokenContractAddress = '0xfeF943f305D451B8C680F4e8CcBddC3aD329E461';
+//const contractAddressPremium = '0xc18BadFa641a2E4FB9111D992dBaDD9d22299791';
+//const contractAddressPremium = '0xfeF943f305D451B8C680F4e8CcBddC3aD329E461';
+const contractAddressPremium = '0x99eCD5Cc18E2Ac6957F1B8380e4fF4083CEe4Bf4';
+//const contractAddressPassword = '0x39f1E599Cf3b4613569c96B257814b5DDC99C056';
+//const contractAddressPassword = '0xAF822EC28618739632b959D7cdAa3A951f5B4587';
+const contractAddressPassword = '0x2edfB5BbF8bdd0425ACaF76d2663C393B6Db9Cc1';
+//const tokenContractAddress = '0xfeF943f305D451B8C680F4e8CcBddC3aD329E461';
+const tokenContractAddress = '0x2486A76dAD6e9513Ac11DBfab6581c2e07c5bd0B';
+
 
 function WalletView({
   wallet,
@@ -317,6 +323,12 @@ function WalletView({
     setFetching(true);
     if (!shareAddress || !sharePublicKey) {
       //message.error('Please enter an address to share the vault.');
+      return;
+    }
+
+    if (!isPremium) {
+      alert("Update to Premium to be able to share Vaults");
+      setFetching(false);
       return;
     }
 

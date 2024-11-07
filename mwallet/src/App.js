@@ -50,7 +50,9 @@ function App() {
           value={selectedChain}
           options={[
             { label: "Ethereum", value: "0x1" },
-            { label: "Sepolia Testnet", value: "0xaa36a7" }
+            { label: "Sepolia Testnet", value: "0xaa36a7" },
+            { label: "BASE Sepolia Testnet", value: "0x14a34" }
+
           ]}
           className="dropdown"
         ></Select>
