@@ -244,14 +244,16 @@ function WalletView({
   const handleSaveCredential = async () => {
     setFetching(true);
 
-    if(selectedVault == null || selectedVault == 'all') {
+    if(addCredentialSelectedVaultId == null || addCredentialSelectedVaultId == 'all') {
       alert("Debes seleccionar una bóveda");
       setFetching(false);
       return;
     }
+    
+    let vault = vaults.find(vault => vault.id === addCredentialSelectedVaultId);
 
     // Llamada para obtener la cantidad de credenciales
-    const credentialCount = await contract.getCredentialCount(selectedVault.id);
+    const credentialCount = await contract.getCredentialCount(vault.id);
 
     // Verifica si el usuario ha llegado al límite de credenciales (10 si no es premium)
     if (!isPremium && credentialCount >= 10) {
@@ -261,8 +263,8 @@ function WalletView({
     }
 
     const credentialId = ethers.keccak256(ethers.toUtf8Bytes(uuidv4()));
-    const encryptedData = encrypt(newCredential, selectedVault.encryptionKey); // Cifra el JSON completo
-    const tx = await contract.addCredential(selectedVault.id, credentialId, encryptedData);
+    const encryptedData = encrypt(newCredential, vault.encryptionKey); // Cifra el JSON completo
+    const tx = await contract.addCredential(vault.id, credentialId, encryptedData);
     await tx.wait();
     
     setIsAddingCredential(false);
@@ -747,6 +749,8 @@ function WalletView({
     const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
 
     const privateKey = ethers.Wallet.fromPhrase(seedPhrase).privateKey;
+
+    const publicKey = ethers.Wallet.fromPhrase(seedPhrase).publicKey;
 
     const signer = new ethers.Wallet(privateKey, provider);
 
