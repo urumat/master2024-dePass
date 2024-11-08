@@ -23,7 +23,7 @@ const contractAddress_sepolia = '0x87cDD6bc65a8756E5Db8d7877E88600C98e15E05';
 const contractAddressPremium = '0x99eCD5Cc18E2Ac6957F1B8380e4fF4083CEe4Bf4';
 //const contractAddressPassword = '0x39f1E599Cf3b4613569c96B257814b5DDC99C056';
 //const contractAddressPassword = '0xAF822EC28618739632b959D7cdAa3A951f5B4587';
-const contractAddressPassword = '0x2edfB5BbF8bdd0425ACaF76d2663C393B6Db9Cc1';
+const contractAddressPassword = '0xb87cDe7cC8abF412dC4c38255593bCEbE96cb241';
 //const tokenContractAddress = '0xfeF943f305D451B8C680F4e8CcBddC3aD329E461';
 const tokenContractAddress = '0x2486A76dAD6e9513Ac11DBfab6581c2e07c5bd0B';
 
