@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Divider, Tooltip, List, Avatar, Spin, Tabs, Input, Button, Select, Form} from "antd";
-import { LogoutOutlined, PlusOutlined, SettingOutlined, TeamOutlined } from "@ant-design/icons";
+import { Divider, Tooltip, List, Avatar, Spin, Tabs, Input, Button, Select, Form, message} from "antd";
+import { LogoutOutlined, PlusOutlined, SettingOutlined, TeamOutlined, RightOutlined, EyeOutlined, EyeInvisibleOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { CHAINS_CONFIG } from "../chains";
 import { ethers } from "ethers";
@@ -64,6 +64,10 @@ function WalletView({
   });
   const [shareAddress, setShareAddress] = useState('');
   const [sharePublicKey, setSharePublicKey] = useState('');
+
+  const [copiedPasswordId, setCopiedPasswordId] = useState(null);
+  const [visiblePasswords, setVisiblePasswords] = useState({});
+  const [expandedCredential, setExpandedCredential] = useState(null);
 
   // Use ABI to create an interface
   const DePassInterface = new ethers.Interface(DePass_abi);
@@ -538,6 +542,28 @@ function WalletView({
     }
   };
 
+
+  const togglePasswordVisibility = (credentialId) => {
+    setVisiblePasswords(prevState => ({
+      ...prevState,
+      [credentialId]: !prevState[credentialId]
+    }));
+  };
+
+  const toggleExpand = (credentialId) => {
+    setExpandedCredential(expandedCredential === credentialId ? null : credentialId);
+  };
+
+  const copyToClipboard = (text, credentialId) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedPasswordId(credentialId);
+      message.success('Copied!');
+      setTimeout(() => {
+        setCopiedPasswordId(null);
+      }, 2000);
+    });
+  };
+
   const items = [
     {
       key: "4",
@@ -596,12 +622,44 @@ function WalletView({
                       <p>No credentials found</p>
                     ) : (
                       getAllCredentials().map((credential) => (
-                        <div key={credential.id}>
-                          <p>
-                            Username: {credential.username}, 
-                            Password: {credential.password}, 
-                            URL: {credential.url}
-                          </p>
+                        <div key={credential.id} className="credential-container">
+                          <div className="credential-container">
+                            <div className="user-avatar">
+                                <img src='/images/id-front.svg' alt="Profile Icon" className="profile-icon" />
+                            </div>
+                            <div className="credential-details">
+                              <div className="credential-header" onClick={() => toggleExpand(credential.id)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <p className="credential-text"><strong>URL:</strong> {credential.url}</p>
+                                <span className={`credential-icon ${expandedCredential === credential.id ? 'active' : ''}`} style={{ marginLeft: '10px' }}>
+                                  <RightOutlined />
+                                </span>
+                              </div>
+                              <div className={`credential-content ${expandedCredential === credential.id ? 'expanded' : ''}`}>
+                              <p className="credential-text credential-username" style={{ margin: 0 }}>
+                                  <strong>Username:</strong> {credential.username}
+                                </p>
+                                
+                                <div className="password-container">
+                                  <p className="credential-text" onClick={() => copyToClipboard(credential.password, credential.id)} style={{ cursor: 'pointer' }}>
+                                    <strong>Password:</strong>
+                                    {visiblePasswords[credential.id] ? credential.password : '*'.repeat(credential.password.length)}
+                                  </p>
+                                  {copiedPasswordId === credential.id && <span className="copied-message">Copied!</span>}
+                                  <button
+                                    className="eye-button"
+                                    onClick={() => togglePasswordVisibility(credential.id)}
+                                  >
+                                    {visiblePasswords[credential.id] ? (
+                                      <EyeInvisibleOutlined className="eye-icon active" />
+                                    ) : (
+                                      <EyeOutlined className="eye-icon" />
+                                    )}
+                                  </button>
+                                </div>
+                                
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       ))
                     )}

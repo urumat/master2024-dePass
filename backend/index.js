@@ -171,7 +171,6 @@ app.get("/getEventsByType/:eventType", async (req, res) => {
   Object.keys(req.query).forEach((key) => {
     if (req.query[key]) {
       filters[key] = req.query[key];
-      console.log(`Filtro ${key}: ${filters[key]}`);
     }
   });
 
