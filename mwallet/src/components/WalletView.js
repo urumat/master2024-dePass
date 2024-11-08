@@ -44,6 +44,7 @@ function WalletView({
   const [fetching, setFetching] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [selectedVault, setSelectedVault] = useState("all");
+  const [addCredentialSelectedVaultId, setAddCredentialSelectedVaultId] = useState("null");
   const [contract, setContract] = useState(null);
   const [contractPremium, setContractPremium] = useState(null);
   const [tokenContract, setTokenContract] = useState(null);
@@ -146,7 +147,8 @@ function WalletView({
             password: result.tempCredentials.password, 
             url: result.tempCredentials.url 
           });
-          setIsAddingCredential(true);
+          
+          handleAddCredential();
           // eslint-disable-next-line no-undef
           chrome.storage.local.set({ tempCredentials: null });
         }
@@ -222,6 +224,7 @@ function WalletView({
   };
 
   const handleAddCredential = () => {
+    selectDefaultVault();
     setIsAddingCredential(true);
   };
 
@@ -305,6 +308,7 @@ function WalletView({
   };
 
   const handleSelectVault = (value) => {
+    setAddCredentialSelectedVaultId(value);
     if (value == "add-vault") {
       setSelectedVault(null);
       handleAddVault(); // Muestra el formulario para agregar un nuevo vault
@@ -422,9 +426,16 @@ function WalletView({
     return sortedCredentials;
   };
 
-  const selectFirstVault = () => {
-    setSelectedVault(vaults[0]);
-    return vaults[0].id;
+  const selectDefaultVault = () => {
+    if(selectedVault == "all"){
+      if(vaults && vaults.length > 0){
+        setAddCredentialSelectedVaultId(vaults[0].id);
+      } else {
+        setAddCredentialSelectedVaultId("null");
+      }
+    } else {
+      setAddCredentialSelectedVaultId(selectedVault.id)
+    }
   }
 
   const renderForms = () => {
@@ -432,9 +443,7 @@ function WalletView({
       return (
         <Form layout="vertical" autoComplete="off">
           <Select
-            defaultValue={(selectedVault == "all" 
-              ? (vaults && vaults.length > 0 ? selectFirstVault() : "null")
-              : selectedVault.id)}
+            value={addCredentialSelectedVaultId}
             style={{ width: "100%" }}
             onChange={handleSelectVault}
           >
@@ -844,6 +853,9 @@ function WalletView({
           }
         }
 
+        if(orderedVaults.length > 0){
+          setAddCredentialSelectedVaultId(orderedVaults[0].id);
+        }
       } catch (error) {
           //setErrorMessage(error.message);
       }
