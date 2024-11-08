@@ -37,15 +37,54 @@ npm install
 
 4) Go to mwallet directory now and make a .env file there as well and paste RPC URLs from your Alchemy or Infura. These RPC URLs are necessary to send transactions
 ```env
-REACT_APP_ETHEREUM_RPC_URL=""
-REACT_APP_MUMBAI_RPC_URL=""
-REACT_APP_SEPOLIA_RPC_URL="" 
+REACT_APP_BASESEPOLIA_RPC_URL=""
 ```
+
+Go to backend directory now and make a .env file there as well and paste RPC URLs from your Alchemy or Infura. These RPC URLs are necessary to send transactions
+```env
+BASE_SEPOLIA_RPC_URL=""
+BASE_SEPOLIA_CONTRACT_ADDRESS=0xb87cDe7cC8abF412dC4c38255593bCEbE96cb241
+MONGO_URI=mongodb://localhost:27017/logsDB
+```
+
 Currently we have only added these networks. You can add as many EVM compatible blockchains as you want.
 
 5) Navigate to the backend directory and do the following in terminal:
 ```sh
+
+
+```
+1) Install Mongo DB
+```sh
+
+sudo apt update
+sudo apt upgrade
+
+wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
+
+echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+
+sudo apt update
+sudo apt install -y mongodb-org
+
+sudo mongod --dbpath /var/lib/mongodb --bind_ip 0.0.0.0
+
+```
+2) If using Ubuntu 22.04
+```sh
+
+wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc |  gpg --dearmor | sudo tee /usr/share/keyrings/mongodb.gpg > /dev/null
+echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+sudo apt update
+sudo apt install mongodb-org
+
+
+```
+3) Run Backend
+```sh
+
 node index.js
+
 ```
 6) Now navigate to the mwallet (frontend) directory and dev start the application:
 ```sh
